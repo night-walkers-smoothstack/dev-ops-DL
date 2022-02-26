@@ -1,5 +1,6 @@
 DIR = cd ../
-include .env
+.EXPORT_ALL_VARIABLES:
+	include .env
 
 run:
 	$(DIR); java -jar aline-underwriter-microservice-DL/underwriter-microservice/target/underwriter-microservice-0.1.0.jar
@@ -11,7 +12,7 @@ run:
 	$(DIR); java -jar aline-user-microservice-DL/user-microservice/target/user-microservice-0.1.0.jar
 
 build:
-	$(DIR)aline-underwriter-microservice-DL; mvn clean install
-	$(DIR)aline-bank-microservice-DL; mvn clean install
-	$(DIR)aline-transaction-microservice-DL; mvn clean install
+	$(DIR)aline-underwriter-microservice-DL; mvn clean install -DskipTests
+	$(DIR)aline-bank-microservice-DL; mvn clean install -DskipTests
+	$(DIR)aline-transaction-microservice-DL; mvn clean install -DskipTests
 	$(DIR)aline-user-microservice-DL; mvn clean install -DskipTests
