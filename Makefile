@@ -1,5 +1,5 @@
 DIR = cd ../
-import .env
+include .env
 
 run:
 	$(DIR); java -jar aline-underwriter-microservice-DL/underwriter-microservice/target/underwriter-microservice-0.1.0.jar
