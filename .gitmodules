@@ -10,3 +10,6 @@
 [submodule "user"]
 	path = microservice/user
 	url = https://github.com/night-walkers-smoothstack/aline-user-microservice-DL
+[submodule "microservice/gateway"]
+	path = microservice/gateway
+	url = https://github.com/night-walkers-smoothstack/aline-gateway-DL
