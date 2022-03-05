@@ -1,0 +1,12 @@
+[submodule "microservice/underwriter"]
+	path = microservice/underwriter
+	url = https://github.com/night-walkers-smoothstack/aline-underwriter-microservice-DL
+[submodule "microservice/bank"]
+	path = microservice/bank
+	url = https://github.com/night-walkers-smoothstack/aline-bank-microservice-DL
+[submodule "microservice/transaction"]
+	path = microservice/transaction
+	url = https://github.com/night-walkers-smoothstack/aline-transaction-microservice-DL
+[submodule "user"]
+	path = microservice/user
+	url = https://github.com/night-walkers-smoothstack/aline-user-microservice-DL
