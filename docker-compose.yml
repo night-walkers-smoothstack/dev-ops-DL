@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+# database
+  mysql-db:
+    user: root
+    image: 'mysql'
+    restart: 'always'
+    command: --default-authentication-plugin=mysql_native_password
+    env_file: .env
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: user
+      MYSQL_PASSWORD: hippopotamus@1
+      MYSQL_DATABASE: alinedb
+    volumes:
+      - ./init/:/docker-entrypoint-initdb.d/
+      - dbdata:/var/lib/mysql
+    ports:
+      - '3306:3306'
+
+  adminer:
+    image: 'adminer'
+    restart: 'always'
+    ports:
+      - '8084:8080'
+# gateway
+  gateway:
+    build:
+      context: ./microservice/gateway
+      dockerfile: Dockerfile
+    image: 'aline-gateway'
+    hostname: gateway
+    env_file:
+      - .env
+    environment:
+      APP_PORT: 8080
+      APP_SERVICE_HOST: localhost
+    ports:
+      - 8080:8080
+# microservices
+  underwriter-microservice:
+    build:
+      context: ./microservice/bank
+      dockerfile: Dockerfile
+    image: 'aline-underwriter-ms'
+    depends_on:
+      - mysql-db
+    env_file:
+      - .env
+    environment:
+      APP_PORT: 8071
+    expose:
+      - 8071
+  bank-microservice:
+    build:
+      context: ./microservice/bank
+      dockerfile: Dockerfile
+    image: 'aline-bank-ms'
+    depends_on:
+      - mysql-db
+    env_file: .env
+    environment: 
+      APP_PORT: 8083
+    expose:
+      - 8083
+  transaction-microservice:
+    build:
+      context: ./microservice/transaction
+      dockerfile: Dockerfile
+    image: 'aline-transaction-ms'
+    depends_on:
+      - mysql-db
+    env_file: .env
+    environment:
+      APP_PORT: 8073
+    expose:
+      - 8073
+  user-microservice:
+    build:
+      context: ./microservice/user
+      dockerfile: Dockerfile
+    image: 'aline-user-ms'
+    depends_on:
+      - mysql-db
+    env_file: .env
+    environment:
+      APP_PORT: 8070
+    expose:
+      - 8070
+# TODO frontend
+
+volumes:
+  dbdata: {}
