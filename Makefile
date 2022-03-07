@@ -1,27 +1,33 @@
-DIR = cd ./
+DIR = cd ./microservice/
 NPROCS = $(shell sysctl hw.ncpu  | grep -o '[0-9]\+')
 MAKEFLAGS += -j$(NPROCS)
 .EXPORT_ALL_VARIABLES:
 include .env
 
-
-build: build-underwriter build-bank build-transaction build-user
+# build jar files
+build: build-underwriter build-bank build-transaction build-user build-gateway
 .PHONY: build
 
 build-underwriter:
-	$(DIR)aline-underwriter-microservice-DL; mvn clean install -DskipTests
+	$(DIR)underwriter; mvn clean package -DskipTests
 build-bank:
-	$(DIR)aline-bank-microservice-DL; mvn clean install -DskipTests 
+	$(DIR)bank; mvn clean package -DskipTests 
 	# mvn package
 build-transaction:
-	$(DIR)aline-transaction-microservice-DL; mvn clean install -DskipTests
+	$(DIR)transaction; mvn clean package -DskipTests
 build-user:
-	$(DIR)aline-user-microservice-DL; mvn clean install -DskipTests
+	$(DIR)user; mvn clean package -DskipTests
 
 build-gateway:
-	$(DIR)aline-user-microservice-DL; mvn clean install -DskipTests
+	$(DIR)gateway; mvn clean package -DskipTests
 
+# docker compose
+up: 
+	docker-compose up
+down:
+	docker-compose down
 
+# run locally
 underwriter:
 	export APP_PORT=$(PORT_UNDERWRITER_MS); $(DIR); java -jar aline-underwriter-microservice-DL/underwriter-microservice/target/underwriter-microservice-0.1.0.jar
 bank:
