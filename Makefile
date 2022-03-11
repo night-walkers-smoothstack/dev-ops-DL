@@ -1,6 +1,6 @@
 DIR = cd ./microservice/
-NPROCS = $(shell sysctl hw.ncpu  | grep -o '[0-9]\+')
-MAKEFLAGS += -j$(NPROCS)
+NPROCS = $(shell sysctl -n hw.logicalcpu) # get number of logical cores
+MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
 .EXPORT_ALL_VARIABLES:
 include .env
 

@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
 # database
@@ -13,17 +13,20 @@ services:
       MYSQL_USER: user
       MYSQL_PASSWORD: hippopotamus@1
       MYSQL_DATABASE: alinedb
+    expose:
+      - 3306
     volumes:
       - ./init/:/docker-entrypoint-initdb.d/
       - dbdata:/var/lib/mysql
-    ports:
-      - '3306:3306'
-
-  adminer:
-    image: 'adminer'
-    restart: 'always'
-    ports:
-      - '8084:8080'
+    networks:
+      - aline
+  # adminer:
+  #   image: 'adminer'
+  #   restart: 'always'
+  #   ports:
+  #     - '8084:8080'
+  #   networks:
+  #     - aline
 # gateway
   gateway:
     build:
@@ -35,15 +38,24 @@ services:
       - .env
     environment:
       APP_PORT: 8080
-      APP_SERVICE_HOST: localhost
+      APP_SERVICE_HOST: "gateway.docker.internal"
+    networks:
+      - aline
+    expose:
+      - 8080
     ports:
       - 8080:8080
+      # - aline.docker.internal:8070:8070
+      # - aline.docker.internal:8071:8071
+      # - aline.docker.internal:8073:8073
+      # - aline.docker.internal:8083:8083
 # microservices
   underwriter-microservice:
     build:
       context: ./microservice/bank
       dockerfile: Dockerfile
-    image: 'aline-underwriter-ms'
+    image: 'underwriter'
+    container_name: underwriter
     depends_on:
       - mysql-db
     env_file:
@@ -52,11 +64,14 @@ services:
       APP_PORT: 8071
     expose:
       - 8071
+    networks:
+      - aline
   bank-microservice:
     build:
       context: ./microservice/bank
       dockerfile: Dockerfile
-    image: 'aline-bank-ms'
+    image: 'bank'
+    container_name: bank
     depends_on:
       - mysql-db
     env_file: .env
@@ -64,11 +79,14 @@ services:
       APP_PORT: 8083
     expose:
       - 8083
+    networks:
+      - aline
   transaction-microservice:
     build:
       context: ./microservice/transaction
       dockerfile: Dockerfile
-    image: 'aline-transaction-ms'
+    image: 'transaction'
+    container_name: transaction
     depends_on:
       - mysql-db
     env_file: .env
@@ -76,11 +94,14 @@ services:
       APP_PORT: 8073
     expose:
       - 8073
+    networks:
+      - aline
   user-microservice:
     build:
       context: ./microservice/user
       dockerfile: Dockerfile
-    image: 'aline-user-ms'
+    image: 'user'
+    container_name: user
     depends_on:
       - mysql-db
     env_file: .env
@@ -88,7 +109,20 @@ services:
       APP_PORT: 8070
     expose:
       - 8070
+    # ports:
+    #   - 8070:8070
+    networks:
+      - aline
 # TODO frontend
 
 volumes:
-  dbdata: {}
+  dbdata: 
+
+networks:
+  aline:
+    driver: bridge
+    name: aline
+    ipam: 
+      config:
+          - subnet: 172.31.0.0/16
+            gateway: "172.31.0.1"
