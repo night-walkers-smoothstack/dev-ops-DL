@@ -30,7 +30,7 @@ services:
 # gateway
   gateway:
     build:
-      context: ./microservice/gateway
+      context: ./backend/gateway
       dockerfile: Dockerfile
     image: 'aline-gateway'
     hostname: gateway
@@ -38,21 +38,17 @@ services:
       - .env
     environment:
       APP_PORT: 8080
-      APP_SERVICE_HOST: "gateway.docker.internal"
+      APP_SERVICE_HOST: localhost
     networks:
       - aline
     expose:
       - 8080
     ports:
       - 8080:8080
-      # - aline.docker.internal:8070:8070
-      # - aline.docker.internal:8071:8071
-      # - aline.docker.internal:8073:8073
-      # - aline.docker.internal:8083:8083
 # microservices
   underwriter-microservice:
     build:
-      context: ./microservice/bank
+      context: ./backend/bank
       dockerfile: Dockerfile
     image: 'underwriter'
     container_name: underwriter
@@ -64,11 +60,13 @@ services:
       APP_PORT: 8071
     expose:
       - 8071
+    ports:
+      - 8071:8071
     networks:
       - aline
   bank-microservice:
     build:
-      context: ./microservice/bank
+      context: ./backend/bank
       dockerfile: Dockerfile
     image: 'bank'
     container_name: bank
@@ -79,11 +77,13 @@ services:
       APP_PORT: 8083
     expose:
       - 8083
+    ports:
+      - 8083:8083
     networks:
       - aline
   transaction-microservice:
     build:
-      context: ./microservice/transaction
+      context: ./backend/transaction
       dockerfile: Dockerfile
     image: 'transaction'
     container_name: transaction
@@ -94,11 +94,13 @@ services:
       APP_PORT: 8073
     expose:
       - 8073
+    ports:
+      - 8073:8073
     networks:
       - aline
   user-microservice:
     build:
-      context: ./microservice/user
+      context: ./backend/user
       dockerfile: Dockerfile
     image: 'user'
     container_name: user
@@ -109,8 +111,8 @@ services:
       APP_PORT: 8070
     expose:
       - 8070
-    # ports:
-    #   - 8070:8070
+    ports:
+      - 8070:8070
     networks:
       - aline
 # TODO frontend
