@@ -1,4 +1,4 @@
-DIR = cd ./microservice/
+DIR = cd ./backend/
 NPROCS = $(shell sysctl -n hw.logicalcpu) # get number of logical cores
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
 .EXPORT_ALL_VARIABLES:
@@ -36,3 +36,4 @@ transaction:
 	export APP_PORT=$(PORT_TRANSACTION_MS); $(DIR); java -jar aline-transaction-microservice-DL/transaction-microservice/target/transaction-microservice-0.1.0.jar
 user:
 	export APP_PORT=$(PORT_USER_MS); $(DIR); java -jar aline-user-microservice-DL/user-microservice/target/user-microservice-0.1.0.jar
+
