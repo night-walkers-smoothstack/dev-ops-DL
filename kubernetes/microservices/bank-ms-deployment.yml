@@ -1,34 +1,53 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: bank-ms
-spec:
-  selector:
-    app: bank-ms
-  ports:
-  - port: 8083
-    targetPort: 8083
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bank-ms
+  labels:
+    app: aline-bank
+  name: aline-bank
 spec:
   selector:
     matchLabels:
-      app: bank-ms
+      app: aline-bank
+  replicas: 1
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
-        app: bank-ms
+        app: aline-bank
     spec:
       containers:
-      - name: bank-ms
-        image: bank
-        resources:
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        ports:
-        - containerPort: 8083
+        - name: aline-bank
+          image: bank
+          imagePullPolicy: Never
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+          - containerPort: 8083
+          env:
+          - name: APP_PORT
+            value: "8083"
+          envFrom:
+          - configMapRef:
+              name: db-config
+          - configMapRef:
+              name: portal-config
+          - secretRef:
+              name: db-secrets
+          - secretRef:
+              name: ms-secrets
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aline-bank
+spec:
+  selector:
+    app: aline-bank
+  ports:
+  - port: 8083
+    targetPort: 8083
 

@@ -20,31 +20,45 @@ services:
       - dbdata:/var/lib/mysql
     networks:
       - aline
-  # adminer:
-  #   image: 'adminer'
-  #   restart: 'always'
-  #   ports:
-  #     - '8084:8080'
-  #   networks:
-  #     - aline
+  adminer:
+    image: 'adminer'
+    restart: 'always'
+    ports:
+      - '8084:8080'
+    networks:
+      - aline
 # gateway
   gateway:
     build:
       context: ./backend/gateway
       dockerfile: Dockerfile
     image: 'aline-gateway'
-    hostname: gateway
+    container_name: gateway
     env_file:
       - .env
     environment:
       APP_PORT: 8080
-      APP_SERVICE_HOST: localhost
+      APP_SERVICE_HOST: proxy
     networks:
       - aline
     expose:
       - 8080
     ports:
       - 8080:8080
+
+# proxy
+  proxy:
+    image: nginx:latest
+    container_name: nginx_proxy
+    volumes:
+      - ./proxy/reverse_proxy.conf:/etc/nginx/nginx.conf
+    networks:
+      - aline
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
 # microservices
   underwriter-microservice:
     build:
@@ -60,10 +74,15 @@ services:
       APP_PORT: 8071
     expose:
       - 8071
-    ports:
-      - 8071:8071
+    # ports:
+    #   - 8071:8071
     networks:
       - aline
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
   bank-microservice:
     build:
       context: ./backend/bank
@@ -77,10 +96,15 @@ services:
       APP_PORT: 8083
     expose:
       - 8083
-    ports:
-      - 8083:8083
+    # ports:
+    #   - 8083:8083
     networks:
       - aline
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
   transaction-microservice:
     build:
       context: ./backend/transaction
@@ -94,10 +118,15 @@ services:
       APP_PORT: 8073
     expose:
       - 8073
-    ports:
-      - 8073:8073
+    # ports:
+    #   - 8073:8073
     networks:
       - aline
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
   user-microservice:
     build:
       context: ./backend/user
@@ -111,10 +140,13 @@ services:
       APP_PORT: 8070
     expose:
       - 8070
-    ports:
-      - 8070:8070
     networks:
       - aline
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
 # TODO frontend
 
 volumes:
@@ -122,9 +154,8 @@ volumes:
 
 networks:
   aline:
-    driver: bridge
+    driver: overlay
     name: aline
     ipam: 
       config:
           - subnet: 172.31.0.0/16
-            gateway: "172.31.0.1"

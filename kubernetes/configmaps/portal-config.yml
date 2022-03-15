@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-config
+data:
+  PORTAL_ADMIN: 0.0.0.0:3000
+  PORTAL_DASHBOARD: 0.0.0.0:3007
+  PORTAL_LANDING: 0.0.0.0:4200

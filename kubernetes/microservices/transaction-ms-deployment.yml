@@ -1,34 +1,53 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: transaction-ms
-spec:
-  selector:
-    app: transaction-ms
-  ports:
-  - port: 8073
-    targetPort: 8073
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: transaction-ms
+  labels:
+    app: aline-transaction
+  name: aline-transaction
 spec:
   selector:
     matchLabels:
-      app: transaction-ms
+      app: aline-transaction
+  replicas: 1
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
-        app: transaction-ms
+        app: aline-transaction
     spec:
       containers:
-      - name: transaction-ms
-        image: transaction
-        resources:
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        ports:
-        - containerPort: 8073
+        - name: aline-transaction
+          image: transaction
+          imagePullPolicy: Never
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+          - containerPort: 8073
+          env:
+          - name: APP_PORT
+            value: "8073"
+          envFrom:
+          - configMapRef:
+              name: db-config
+          - configMapRef:
+              name: portal-config
+          - secretRef:
+              name: db-secrets
+          - secretRef:
+              name: ms-secrets
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aline-transaction
+spec:
+  selector:
+    app: aline-transaction
+  ports:
+  - port: 8073
 
+  

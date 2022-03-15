@@ -1,0 +1,115 @@
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: mysql-db
+# spec:
+#   replicas: 1
+#   strategy:
+#     type: Recreate
+#   selector:
+#     matchLabels:
+#       app: mysql-db
+#   template:
+#     metadata:
+#       labels:
+#         app: mysql-db
+#     spec:
+#       containers:
+#       - args:
+#         - --default-authentication-plugin=mysql_native_password
+#         name: mysql-db
+#         image: mysql:latest
+#         resources:
+#           limits:
+#             memory: "128Mi"
+#             cpu: "500m"
+#         ports:
+#         - containerPort: 3306
+#           name: mysql-db
+#         volumeMounts:
+#           - name: mysql-db-storage
+#             mountPath: /var/lib/mysql
+#         envFrom:
+#           - configMapRef:
+#               name: db-config
+#           - secretRef:
+#               name: db-secrets
+#       restartPolicy: Always
+#       volumes:
+#         - name: mysql-db-storage
+#           persistentVolumeClaim:
+#             claimName: mysql-db-pv-claim
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-db
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-db
+spec:
+  selector:
+    matchLabels:
+      app: mysql-db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql-db
+    spec:
+      containers:
+      - image: mysql:latest
+        name: mysql-db
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          value: root
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 3306
+          name: mysql-db
+        volumeMounts:
+          - name: mysql-persistent-storage
+            mountPath: /var/lib/mysql
+        envFrom:
+          - configMapRef:
+              name: db-config
+          - secretRef:
+              name: db-secrets
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-db
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql-db
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  resources:
+    requests:
+      storage: 2Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+

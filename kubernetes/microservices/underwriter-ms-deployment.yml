@@ -1,34 +1,53 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: underwriter-ms
-spec:
-  selector:
-    app: underwriter-ms
-  ports:
-  - port: 8071
-    targetPort: 8071
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: underwriter-ms
+  labels:
+    app: aline-underwriter
+  name: aline-underwriter
 spec:
   selector:
     matchLabels:
-      app: underwriter-ms
+      app: aline-underwriter
+  replicas: 1
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
-        app: underwriter-ms
+        app: aline-underwriter
     spec:
       containers:
-      - name: underwriter-ms
-        image: underwriter
-        resources:
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-        ports:
-        - containerPort: 8071
+        - name: aline-underwriter
+          image: underwriter
+          imagePullPolicy: Never
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+          - containerPort: 8071
+          env:
+          - name: APP_PORT
+            value: "8071"
+          envFrom:
+          - configMapRef:
+              name: db-config
+          - configMapRef:
+              name: portal-config
+          - secretRef:
+              name: db-secrets
+          - secretRef:
+              name: ms-secrets
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aline-underwriter
+spec:
+  selector:
+    app: aline-underwriter
+  ports:
+  - port: 8071
+    targetPort: 8071
 
