@@ -64,8 +64,8 @@ services:
     build:
       context: ./backend/bank
       dockerfile: Dockerfile
-    image: 'underwriter'
-    container_name: underwriter
+    image: 'aline-underwriter'
+    container_name: aline-underwriter
     depends_on:
       - mysql-db
     env_file:
@@ -87,8 +87,8 @@ services:
     build:
       context: ./backend/bank
       dockerfile: Dockerfile
-    image: 'bank'
-    container_name: bank
+    image: 'aline-bank'
+    container_name: aline-bank
     depends_on:
       - mysql-db
     env_file: .env
@@ -103,14 +103,14 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-      restart_policy:
-        condition: on-failure
+      # restart_policy:
+      #   condition: on-failure
   transaction-microservice:
     build:
       context: ./backend/transaction
       dockerfile: Dockerfile
-    image: 'transaction'
-    container_name: transaction
+    image: 'aline-transaction'
+    container_name: aline-transaction
     depends_on:
       - mysql-db
     env_file: .env
@@ -125,14 +125,14 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-      restart_policy:
-        condition: on-failure
+      # restart_policy:
+      #   condition: on-failure
   user-microservice:
     build:
       context: ./backend/user
       dockerfile: Dockerfile
-    image: 'user'
-    container_name: user
+    image: 'aline-user'
+    container_name: aline-user
     depends_on:
       - mysql-db
     env_file: .env
@@ -145,8 +145,8 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-      restart_policy:
-        condition: on-failure
+      # restart_policy:
+      #   condition: on-failure
 # TODO frontend
 
 volumes:
@@ -154,7 +154,7 @@ volumes:
 
 networks:
   aline:
-    driver: overlay
+    driver: bridge
     name: aline
     ipam: 
       config:
