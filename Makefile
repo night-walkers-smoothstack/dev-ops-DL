@@ -1,4 +1,6 @@
 DIR = ./backend/
+SERVICES = user bank transaction underwriter
+BRANCH = NTWS-93-jenkins-pipelines-for-microservices-dl
 NPROCS = $(shell sysctl -n hw.logicalcpu) # get number of logical cores
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
 .EXPORT_ALL_VARIABLES:
@@ -41,12 +43,19 @@ dockerize: dockerize-underwriter dockerize-bank dockerize-transaction dockerize-
 .PHONY: dockerize
 
 dockerize-underwriter:
-	docker build ${DIR}underwriter -t underwriter
+	docker build ${DIR}underwriter -t aline-underwriter
 dockerize-bank:
-	docker build ${DIR}bank -t bank
+	docker build ${DIR}bank -t aline-bank
 dockerize-transaction:
-	docker build ${DIR}transaction -t transaction
+	docker build ${DIR}transaction -t aline-transaction
 dockerize-user:
-	docker build ${DIR}user -t user
+	docker build ${DIR}user -t aline-user
 dockerize-gateway:
-	docker build ${DIR}gateway -t gateway
+	docker build ${DIR}gateway -t aline-gateway
+
+
+checkout:
+	cd $(DIR)underwriter; git checkout -b $(BRANCH)
+	cd $(DIR)bank; git checkout -b $(BRANCH)
+	cd $(DIR)transaction; git checkout -b $(BRANCH)
+	cd $(DIR)user; git checkout -b $(BRANCH)

@@ -1,0 +1,65 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "ecr-public:*",
+                "sts:GetServiceBearerToken",
+                "ecr:DescribeRepositories",
+                "ecr:CreateRepository",
+                "imagebuilder:GetComponent",
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:GetAuthorizationToken",
+                "ecr:UploadLayerPart",
+                "logs:CreateLogGroup",
+                "logs:PutLogEvents",
+                "imagebuilder:GetContainerRecipe",
+                "ecr:PutImage",
+                "s3:GetObject",
+                "logs:CreateLogStream",
+                "s3:ListAllMyBuckets",
+                "ecr:BatchGetImage",
+                "ecr:CompleteLayerUpload",
+                "ecr:InitiateLayerUpload",
+                "ecr:BatchCheckLayerAvailability"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": "kms:Decrypt",
+            "Resource": "*",
+            "Condition": {
+                "ForAnyValue:StringEquals": {
+                    "aws:CalledVia": "imagebuilder.amazonaws.com",
+                    "kms:EncryptionContextKeys": "aws:imagebuilder:arn"
+                }
+            }
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": "s3:GetBucketLocation",
+            "Resource": "arn:aws:s3:::*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::dylrob-jenkins-artifacts"
+        },
+        {
+            "Sid": "VisualEditor4",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::dylrob-jenkins-artifacts/*"
+        }
+    ]
+}
