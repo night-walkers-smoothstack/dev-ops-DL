@@ -13,3 +13,6 @@
 [submodule "microservice/gateway"]
 	path = backend/gateway
 	url = https://github.com/night-walkers-smoothstack/aline-gateway-DL
+[submodule "aline-db-DL"]
+	path = data_producers
+	url = https://github.com/night-walkers-smoothstack/aline-db-DL.git
