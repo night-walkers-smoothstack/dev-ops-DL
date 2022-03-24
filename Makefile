@@ -54,7 +54,6 @@ dockerize-user:
 dockerize-gateway:
 	docker build ${DIR}gateway -t aline-gateway
 
-# to use, say make checkout b=<branch-name>
 checkout:
 	cd ${DIR}underwriter; git checkout -b ${b}
 	cd ${DIR}bank; git checkout -b ${b}
