@@ -1,4 +1,4 @@
-FROM openjdk:8-jre-slim-buster
+FROM amazoncorretto:8-alpine3.15-jre
 LABEL maintainer "Dylan Luttrell"
 # arguments for service name, its directory, and version
 ARG NAME=<SERVICE-NAME>
