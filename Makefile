@@ -1,8 +1,9 @@
 DIR = ./backend/
 SERVICES = user bank transaction underwriter
-BRANCH = NTWS-93-jenkins-pipelines-for-microservices-dl
 NPROCS = $(shell sysctl -n hw.logicalcpu) # get number of logical cores
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
+REPO = 'public.ecr.aws/l4g0u1s9'
+AWS_REGION = 'us-east-1'
 .EXPORT_ALL_VARIABLES:
 include .env
 
@@ -53,9 +54,30 @@ dockerize-user:
 dockerize-gateway:
 	docker build ${DIR}gateway -t aline-gateway
 
-
+# to use, say make checkout b=<branch-name>
 checkout:
-	cd $(DIR)underwriter; git checkout -b $(BRANCH)
-	cd $(DIR)bank; git checkout -b $(BRANCH)
-	cd $(DIR)transaction; git checkout -b $(BRANCH)
-	cd $(DIR)user; git checkout -b $(BRANCH)
+	cd ${DIR}underwriter; git checkout -b ${b}
+	cd ${DIR}bank; git checkout -b ${b}
+	cd ${DIR}transaction; git checkout -b ${b}
+	cd ${DIR}user; git checkout -b ${b}
+
+
+.PHONY: dockerfile
+dockerfile:
+	sh automations/updocker.sh 'underwriter-microservice' backend/underwriter
+	sh automations/updocker.sh 'bank-microservice' backend/bank
+	sh automations/updocker.sh 'transaction-microservice' backend/transaction
+	sh automations/updocker.sh 'user-microservice' backend/user
+
+.PHONY: jenkinsfile
+jenkinsfile:
+	sh automations/upjenkins.sh 'aline-underwriter' '0.1.0' ${REPO} ${AWS_REGION} backend/underwriter/
+	sh automations/upjenkins.sh 'aline-bank' '0.1.0' ${REPO} ${AWS_REGION} backend/bank/
+	sh automations/upjenkins.sh 'aline-transaction' '0.1.0' ${REPO} ${AWS_REGION} backend/transaction/
+	sh automations/upjenkins.sh 'aline-user' '0.1.0' ${REPO} ${AWS_REGION} backend/user/
+
+runfile:
+	cp templates/run.sh  backend/underwriter/
+	cp templates/run.sh  backend/bank/
+	cp templates/run.sh  backend/transaction/
+	cp templates/run.sh  backend/user/
