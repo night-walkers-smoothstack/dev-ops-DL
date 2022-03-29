@@ -1,0 +1,61 @@
+x-aws-vpc: ${AWS_VPC}
+version: '3.9'
+
+services:
+  underwriter-microservice:
+    image: public.ecr.aws/l4g0u1s9/aline-underwriter:0.1.0
+    container_name: aline-underwriter
+    env_file: .env_db
+    environment:
+      APP_PORT: 8071
+    secrets:
+      - db_keys
+    networks:
+      - default
+  
+  bank-microservice:
+    image: public.ecr.aws/l4g0u1s9/aline-bank:0.1.0
+    container_name: aline-bank
+    env_file: .env_db
+    environment: 
+      APP_PORT: 8083
+    secrets:
+      - db_keys
+    networks:
+      - default
+
+  transaction-microservice:
+    image: public.ecr.aws/l4g0u1s9/aline-transaction:0.1.0
+    container_name: aline-transaction
+    env_file: .env_db
+    environment:
+      APP_PORT: 8073
+    secrets:
+      - db_keys
+    networks:
+      - default
+
+  user-microservice:
+    image: public.ecr.aws/l4g0u1s9/aline-user:0.1.0
+    container_name: aline-user
+    env_file: .env_db
+    environment:
+      APP_PORT: 8070
+    secrets:
+      - db_keys
+    networks:
+      - default
+
+
+networks:
+  default:
+    name: ${SEC_GRP}
+    external: true
+
+secrets:
+  db_keys:
+    name: "arn:aws:secretsmanager:us-east-1:${ACCOUNT_NUM}:secret:aline-db-secrets-dl-Ouv40l"
+    external:
+      true
+    x-aws-keys:
+      - "*"
