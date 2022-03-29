@@ -9,7 +9,7 @@ pipeline{
         IMAGE_NAME = '<NAME>'
         APP_VERSION = '<VERSION>'
         REGISTRY_URI = '<REGISTRY>'  //'public.ecr.aws/l4g0u1s9'
-        AWS_REGION = '<REGION>'
+        AWS_REGION = '<AWS_REGION>'
     }
     stages{
         stage('Get AWS Credentials') {
