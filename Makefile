@@ -2,7 +2,7 @@ DIR = ./backend/
 SERVICES = user bank transaction underwriter
 NPROCS = $(shell sysctl -n hw.logicalcpu) # get number of logical cores
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
-REPO = 'public.ecr.aws/l4g0u1s9'
+REPO = 'public.ecr.aws\/l4g0u1s9'
 AWS_REGION = 'us-east-1'
 .EXPORT_ALL_VARIABLES:
 include .env
