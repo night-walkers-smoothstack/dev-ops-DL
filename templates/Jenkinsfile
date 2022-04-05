@@ -16,7 +16,7 @@ pipeline{
             steps {
                 // attempt to login to aws and pass credentials to docker
                 sh """
-                    aws ecr-public get-login-password --region ${AWS_REGION} |\
+                    aws ecr get-login-password --region ${AWS_REGION} |\
                      docker login --username AWS --password-stdin ${REGISTRY_URI}
                 """
             }
@@ -46,7 +46,7 @@ pipeline{
             steps{
                 // create repo if it doesn't already exist
                 sh """
-                    aws ecr-public create-repository --repository-name ${IMAGE_NAME} || true
+                    aws ecr create-repository --repository-name ${IMAGE_NAME} || true
                 """
                 // add repo tag and push to aws
                 sh """
@@ -54,6 +54,11 @@ pipeline{
                     docker push ${REGISTRY_URI}/${IMAGE_NAME} --all-tags
                 """
             }
+        }
+    }
+    post {
+        always {
+            sh 'docker image prune -f'
         }
     }
 }
