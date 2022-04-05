@@ -1,11 +1,25 @@
 DIR = ./backend/
 SERVICES = user bank transaction underwriter
-NPROCS = $(shell sysctl -n hw.logicalcpu) # get number of logical cores
+ # get number of logical cores
+ifeq ($(OS),Windows_NT)
+	NPROCS = $(echo %NUMBER_OF_PROCESSORS%)
+else
+	OS = $(shell uname -s)
+	ifeq  ($(OS),Darwin)
+		NPROCS := $(shell sysctl -n hw.logicalcpu)
+	else
+		NPROCS := $(shell nproc)
+	endif
+endif
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
-REPO = 'public.ecr.aws\/l4g0u1s9'
+REPO = '778295182882.dkr.ecr.us-east-1.amazonaws.com'
 AWS_REGION = 'us-east-1'
 .EXPORT_ALL_VARIABLES:
 include .env
+
+default:
+	@echo "System: ${OS}"
+	@echo "Nprocs: ${NPROCS}"
 
 # build jar files
 build: build-underwriter build-bank build-transaction build-user build-gateway
@@ -55,6 +69,7 @@ dockerize-gateway:
 	docker build ${DIR}gateway -t aline-gateway
 
 checkout:
+	test ${b} || (echo "usage 'make checkout b=<BRANCH-NAME>'" && false)
 	cd ${DIR}underwriter; git checkout -b ${b}
 	cd ${DIR}bank; git checkout -b ${b}
 	cd ${DIR}transaction; git checkout -b ${b}
@@ -70,10 +85,10 @@ dockerfile:
 
 .PHONY: jenkinsfile
 jenkinsfile:
-	sh automations/upjenkins.sh 'aline-underwriter' '0.1.0' ${REPO} ${AWS_REGION} backend/underwriter/
-	sh automations/upjenkins.sh 'aline-bank' '0.1.0' ${REPO} ${AWS_REGION} backend/bank/
-	sh automations/upjenkins.sh 'aline-transaction' '0.1.0' ${REPO} ${AWS_REGION} backend/transaction/
-	sh automations/upjenkins.sh 'aline-user' '0.1.0' ${REPO} ${AWS_REGION} backend/user/
+	sh automations/upjenkins.sh 'aline_underwriter_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/underwriter/
+	sh automations/upjenkins.sh 'aline_bank_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/bank/
+	sh automations/upjenkins.sh 'aline_transaction_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/transaction/
+	sh automations/upjenkins.sh 'aline_user_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/user/
 
 runfile:
 	cp templates/run.sh  backend/underwriter/
