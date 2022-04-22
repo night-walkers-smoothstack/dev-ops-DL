@@ -14,8 +14,8 @@ endif
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
 REPO = ' '
 AWS_REGION = 'us-east-1'
-.EXPORT_ALL_VARIABLES:
-include .env
+# .EXPORT_ALL_VARIABLES:
+# include .env
 
 default:
 	@echo "System: ${OS}"
@@ -95,3 +95,10 @@ runfile:
 	cp templates/run.sh  backend/bank/
 	cp templates/run.sh  backend/transaction/
 	cp templates/run.sh  backend/user/
+
+scan:
+	git secrets --scan
+	cd backend/underwriter && git secrets --scan
+	cd backend/bank && git secrets --scan
+	cd backend/transaction && git secrets --scan
+	cd backend/user && git secrets --scan

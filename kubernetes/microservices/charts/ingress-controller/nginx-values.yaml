@@ -1,0 +1,17 @@
+# source https://rajeshwrn.github.io/alb-nginx-controller/
+controller: 
+  extraArgs: 
+    http-port: 8080 
+    https-port: 8443 
+  containerPort: 
+    http: 8080 
+    https: 8443 
+  service: 
+    ports: 
+      http: 80 
+      https: 443 
+    targetPorts: 
+      http: 8080 
+      https: 8443 
+  image: 
+    allowPrivilegeEscalation: false

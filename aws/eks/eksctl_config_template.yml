@@ -12,13 +12,13 @@ metadata:
 #     maxSize: 4
 
 vpc:
-  id: "vpc-0b5dc95541f03266a"
+  id: "${EKS_VPC}"
   subnets:
     private:
-      "us-west-1b":
-        id: subnet-0d0f456e10b1d5570
-      "us-west-1c":
-        id: subnet-0bb9e51e7aedecd9d
+      ${EKS_PRIVATE_SUBNET_AZ}:
+        id: ${EKS_PRIVATE_SUBNET}
+      ${EKS_PRIVATE_TWO_SUBNET_AZ}:
+        id: ${EKS_PRIVATE_TWO_SUBNET}
 
 fargateProfiles:
   - name: fg-default
