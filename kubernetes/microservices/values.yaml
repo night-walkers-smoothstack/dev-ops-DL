@@ -1,0 +1,29 @@
+localDeployment: true
+Repo:
+  public.ecr.aws/l4g0u1s9
+  # 778295182882.dkr.ecr.us-east-1.amazonaws.com
+Services:
+  - name: aline-bank
+    image: aline-bank
+    container:
+      name: aline-bank
+      port: 8083
+      path: '/(members|banks|branches).*'
+  - name: aline-transaction
+    image: aline-transaction
+    container:
+      name: aline-transaction
+      port: 8073
+      path: '/(transactions/?.*|(members|accounts)/.+/transactions)'
+  - name: aline-underwriter
+    image: aline-underwriter
+    container:
+      name: aline-underwriter
+      port: 8071
+      path: '/(applicants|applications).*'
+  - name: aline-user
+    image: aline-user
+    container:
+      name: aline-user
+      port: 8070
+      path: '/(users|login).*'

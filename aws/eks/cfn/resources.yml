@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  vpcCIDR:
+    Type: String
+    Default: 10.2.0.0/16
+
+  PrivateSubnetCIDR:
+    Type: String
+    Default: 10.2.10.0/24
+
+  Private2SubnetCIDR:
+    Type: String
+    Default: 10.2.20.0/24
+
+Resources:
+  AlineFinacialVPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref vpcCIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      # Ipv4IpamPoolId: String
+      # Ipv4NetmaskLength: Integer
+      Tags: 
+        - Key: user
+          Value: Dylan
+  
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AlineFinacialVPC
+      AvailabilityZone: us-west-1b
+      CidrBlock: !Ref PrivateSubnetCIDR
+      MapPublicIpOnLaunch: false
+
+  Private2Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref AlineFinacialVPC
+      AvailabilityZone: us-west-1c
+      CidrBlock: !Ref Private2SubnetCIDR
+      MapPublicIpOnLaunch: false
+  
+  # Private2Subnet:
+  #   Type: AWS::EC2::Subnet
+  #   Properties:
+  #     VpcId: !Ref AlineFinacialVPC
+  #     CidrBlock: 10.2.1.0/24
+
+  PeeringConnection:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties: 
+      # PeerOwnerId: 
+      # PeerRoleArn: String
+      PeerVpcId: vpc-099b8359fac88d11e
+      PeerRegion: us-east-1
+      VpcId: !Ref AlineFinacialVPC
+  
+  secretMan:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: "keys for Dylan Luttrell's branch of alinedb"
+      # KmsKeyId: String
+      Name: db_keys_dl
+      SecretString: 
+        ${SECRET}
+      Tags: 
+        - Key: Owner
+          Value: DL
+
+Outputs:
+  vpc:
+    Value: !Ref AlineFinacialVPC
+  peering:
+    Value: !Ref PeeringConnection
+  private1:
+    Value: !Ref PrivateSubnet
+  public1:
+    Value: !Ref Private2Subnet
+  key:
+    Value: !Ref secretMan

@@ -1,5 +1,0 @@
-{
-    "yaml.schemas": {
-        "https://json.schemastore.org/kustomization.json": "file:///Users/dylanluttrell/Coding/work/sprint1/dev-ops-DL/kubernetes/mysql-deployment.yml"
-    }
-}
