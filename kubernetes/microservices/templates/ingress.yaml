@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+  labels:
+    name: ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "360"
+spec:
+  rules:
+  - http:
+      paths:
+      {{- range .Values.Services }}
+      - pathType: Exact
+        path: {{ .container.path }}
+        backend:
+          service:
+            name: {{ .container.name }}
+            port: 
+              number: {{ .container.port }}
+      {{- end }}
