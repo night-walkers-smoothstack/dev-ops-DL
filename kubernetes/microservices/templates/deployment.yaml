@@ -1,0 +1,90 @@
+{{- range .Values.Services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{ .name }}
+  name: {{ .name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      restartPolicy: Always
+      containers:
+      - name: {{ .container.name }}
+        image: {{if $.Values.localDeployment }}
+          "{{ .image }}"
+        {{else}}
+          "{{ $.Values.Repo }}/{{ .image }}"
+        {{- end }}
+        imagePullPolicy: IfNotPresent
+        {{ if hasKey .container "resources" -}}
+        resources:
+          limits:
+            memory: {{ .container.resources.memory }}
+            cpu: {{ .container.resources.cpu }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .container.port }}
+        env:
+        - name: APP_PORT
+          value: {{ .container.port | squote }}
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dbsecrets
+              key: db_username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dbsecrets
+              key: db_password
+        - name: APP_USER_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dbsecrets
+              key: app_user_access_key
+        - name: APP_USER_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dbsecrets
+              key: app_user_secret_key
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dbsecrets
+              key: jwt_secret_key
+        - name: ENCRYPT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dbsecrets
+              key: encrypt_secret_key
+        envFrom:
+        - configMapRef:
+            name: db-config
+        - configMapRef:
+            name: portal-config
+      {{ if not $.Values.localDeployment -}}
+      # config for secrets via csi driver
+        volumeMounts:
+          - name: dbsecrets
+            mountPath: "/mnt/secrets-store"
+            readOnly: true
+      volumes:
+        - name: dbsecrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "aws-secrets"
+      {{- end }}
+---
+{{- end }}
