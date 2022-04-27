@@ -6,3 +6,5 @@ aws/eks/secrets/secret.json
 secret.json
 aws/eks/eksctl_config.yml
 aws/myecs/.aws_env
+.terraform*
+db.auto.tfvars
