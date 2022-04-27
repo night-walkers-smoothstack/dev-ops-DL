@@ -12,7 +12,7 @@ else
 	endif
 endif
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
-REPO = ' '
+REPO = ''
 AWS_REGION = 'us-east-1'
 # .EXPORT_ALL_VARIABLES:
 # include .env
