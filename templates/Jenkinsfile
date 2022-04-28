@@ -8,8 +8,7 @@ pipeline{
     environment {
         IMAGE_NAME = '<NAME>'
         APP_VERSION = '<VERSION>'
-        REGISTRY_URI = '<REGISTRY>'  //'public.ecr.aws/l4g0u1s9'
-        AWS_REGION = '<REGION>'
+        AWS_REGION = '<AWS_REGION>'
     }
     stages {
         // stage('Get AWS Credentials') {
@@ -76,7 +75,7 @@ pipeline{
                 //     docker push ${REGISTRY_URI}/${IMAGE_NAME} --all-tags
                 // """
                 script {
-                    docker.withRegistry(${ REGISTRY_URI }, "ecr:${ AWS_REGION }:${ CREDENTIAL }") {
+                    docker.withRegistry(env.REPOSITORY, "ecr:${ AWS_REGION }:${ CREDENTIAL }") {
                         app.push(${ APP_VERSION })
                     }
                 }
