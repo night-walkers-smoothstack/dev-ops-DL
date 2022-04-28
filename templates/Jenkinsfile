@@ -8,26 +8,47 @@ pipeline{
     environment {
         IMAGE_NAME = '<NAME>'
         APP_VERSION = '<VERSION>'
-        REGISTRY_URI = '<REGISTRY>'  //'public.ecr.aws/l4g0u1s9'
-        AWS_REGION = '<REGION>'
+        AWS_REGION = '<AWS_REGION>'
     }
-    stages{
-        stage('Get AWS Credentials') {
+    stages {
+        // stage('Get AWS Credentials') {
+        //     steps {
+        //         // attempt to login to aws and pass credentials to docker
+        //         sh """
+        //             aws ecr get-login-password --region ${AWS_REGION} |\
+        //              docker login --username AWS --password-stdin ${REGISTRY_URI}
+        //         """
+        //     }
+        // }
+        stage('Test') {
             steps {
-                // attempt to login to aws and pass credentials to docker
-                sh """
-                    aws ecr get-login-password --region ${AWS_REGION} |\
-                     docker login --username AWS --password-stdin ${REGISTRY_URI}
-                """
+                sh 'mvn test'
             }
         }
+        stage('Sonarqube') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                sh 'mvn sonar:sonar'
+              }
+            }
+        }
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    // Parameter indicates whether to set pipeline to UNSTABLE if Quality Gate fails
+                    // true = set pipeline to UNSTABLE, false = don't
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('Package Jar') {
-            steps{
+            steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
-        stage('Build Image'){
-            steps{
+        stage('Build Image') {
+            steps {
                 // get microservice name and version from pom.xml, then build image
                 sh """
                     VERSION=\$(grep -m 1 "<version>" pom.xml | awk -F'[><]' \'{print \$3}\')
@@ -42,18 +63,29 @@ pipeline{
                 """
             }
         }
-        stage('Deploy to ECR'){
-            steps{
-                // create repo if it doesn't already exist
-                sh """
-                    aws ecr create-repository --repository-name ${IMAGE_NAME} || true
-                """
-                // add repo tag and push to aws
-                sh """
-                    docker tag ${IMAGE_NAME}:${APP_VERSION} ${REGISTRY_URI}/${IMAGE_NAME}:${APP_VERSION}
-                    docker push ${REGISTRY_URI}/${IMAGE_NAME} --all-tags
-                """
-            }
+        stage('Deploy to ECR') {
+            steps {
+              // use commented code instead if publishing to a public repo
+                // // create repo if it doesn't already exist
+                // sh """
+                //     aws ecr create-repository --repository-name ${IMAGE_NAME} || true
+                // """
+                // // add repo tag and push to aws
+                // sh """
+                //     docker tag ${IMAGE_NAME}:${APP_VERSION} ${REGISTRY_URI}/${IMAGE_NAME}:${APP_VERSION}
+                //     docker push ${REGISTRY_URI}/${IMAGE_NAME} --all-tags
+                // """
+                script {
+                    docker.withRegistry(env.REPOSITORY, "ecr:${ AWS_REGION }:${ CREDENTIAL }") {
+                        app.push(${ APP_VERSION })
+                    }
+                }
+        }
+    }
+}
+    post {
+        always {
+            sh 'docker image prune -f'
         }
     }
     post {
