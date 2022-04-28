@@ -65,6 +65,7 @@ pipeline{
         }
         stage('Deploy to ECR') {
             steps {
+              // use commented code instead if publishing to a public repo
                 // // create repo if it doesn't already exist
                 // sh """
                 //     aws ecr create-repository --repository-name ${IMAGE_NAME} || true
@@ -82,6 +83,11 @@ pipeline{
         }
     }
 }
+    post {
+        always {
+            sh 'docker image prune -f'
+        }
+    }
     post {
         always {
             sh 'docker image prune -f'
