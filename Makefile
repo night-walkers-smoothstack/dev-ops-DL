@@ -12,7 +12,6 @@ else
 	endif
 endif
 MAKEFLAGS += -j$(NPROCS) # set multithreading to num of logical cores
-REPO = ''
 AWS_REGION = 'us-east-1'
 # .EXPORT_ALL_VARIABLES:
 # include .env
@@ -85,10 +84,10 @@ dockerfile:
 
 .PHONY: jenkinsfile
 jenkinsfile:
-	sh automations/upjenkins.sh 'aline_underwriter_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/underwriter/
-	sh automations/upjenkins.sh 'aline_bank_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/bank/
-	sh automations/upjenkins.sh 'aline_transaction_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/transaction/
-	sh automations/upjenkins.sh 'aline_user_dl' '0.1.0' ${REPO} ${AWS_REGION} backend/user/
+	sh automations/upjenkins.sh 'aline_underwriter_dl' '0.1.0' ${AWS_REGION} backend/underwriter/
+	sh automations/upjenkins.sh 'aline_bank_dl' '0.1.0' ${AWS_REGION} backend/bank/
+	sh automations/upjenkins.sh 'aline_transaction_dl' '0.1.0' ${AWS_REGION} backend/transaction/
+	sh automations/upjenkins.sh 'aline_user_dl' '0.1.0' ${AWS_REGION} backend/user/
 
 runfile:
 	cp templates/run.sh  backend/underwriter/
