@@ -8,6 +8,26 @@ pipeline {
     REGION = 'us-west-1'
   }
   stages{
+    stage('SonarQube analysis') {
+      steps {
+        script {
+          withSonarQubeEnv('sonarqube') {
+            sh """
+            ${tool("sonarscan")}/bin/sonar-scanner \
+                                -Dsonar.projectKey=terraform \
+                                -Dsonar.sources=terraform
+            """
+          }
+        }
+      }
+    }
+    stage("Quality gate") {
+      steps {
+        timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate(abortPipeline: true)
+        }
+      }
+    }
     stage('Init') {
       steps {
         withAWS(credentials:'terraform') {
@@ -23,48 +43,36 @@ pipeline {
     stage('Get TFVars') {
       steps {
         withAWS(credentials:'terraform', region:"${env.TERRAFORM_S3_REGION}") {
-          s3Download(file: "${WORKING_DIR}/terraform.tfvars", bucket: "${env.TFVARS}", path: 'terraform.tfvars')
+          s3Download(file: "${WORKING_DIR}/terraform.tfvars",
+                     bucket: "${env.TFVARS}",
+                     path: 'terraform.tfvars')
         }
       }
     }
     stage('Plan') {
       steps {
         withAWS(credentials:'terraform', region:"${REGION}") {
-          sh 'ls'
           dir("${WORKING_DIR}") {
-            sh 'ls'
             sh 'terraform plan --var-file=terraform.tfvars'
           }
         }
       }
     }
-    stage('SonarQube analysis') {
+    
+    stage('Apply') {
       steps {
-        script {
-          withSonarQubeEnv('sonarqube') {
-            sh "${tool("sonarscan")}/bin/sonar-scanner -Dsonar.projectKey=terraform -Dsonar.sources=terraform"
-          }
+        withAWS(credentials:'terraform', region:"${REGION}") {
+          dir("${WORKING_DIR}") {
+            sh '''
+            terraform apply --var-file=terraform.tfvars \
+                            -no-color \
+                            -input=false \
+                            -auto-approve
+            '''
+          } 
         }
       }
     }
-    stage("Quality gate") {
-      steps {
-        
-        timeout(time: 5, unit: 'MINUTES') {
-            // Parameter indicates whether to set pipeline to UNSTABLE if Quality Gate fails
-            // true = set pipeline to UNSTABLE, false = don't
-            waitForQualityGate(abortPipeline: true)
-        }
-        
-      }
-    }
-    // stage('Deploy') {
-    //   steps {
-    //     withAWS(credentials:'terraform') {
-    //         sh 'terraform apply -auto-approve'
-    //       }
-    //     }
-    // }
   }
   post {
     always {
