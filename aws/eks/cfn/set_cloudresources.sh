@@ -1,5 +1,6 @@
 export SECRET=$(ls secrets/*.json | head -1)
 
+set -e
 if [ -z SECRET ]
 then
     echo 'secrets.json missing'

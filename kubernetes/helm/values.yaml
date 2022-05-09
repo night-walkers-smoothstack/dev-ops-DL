@@ -1,7 +1,17 @@
 localDeployment: true
-Repo:
-  public.ecr.aws/l4g0u1s9
-  # 778295182882.dkr.ecr.us-east-1.amazonaws.com
+Orchestration: eksctl
+Repo: INVALID # public.ecr.aws/l4g0u1s9
+Secret:
+  Name: INVALID
+  Location: INVALID
+  ARN: INVALID
+  Vars:
+    - db_username
+    - db_password
+    - app_user_access_key
+    - app_user_secret_key
+    - jwt_secret_key
+    - encrypt_secret_key
 Services:
   - name: aline-bank
     image: aline-bank

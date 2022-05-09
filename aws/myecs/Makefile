@@ -2,7 +2,7 @@
 include .aws_env
 
 up:
-	docker context use itsaecscontext
+	docker context use myecscontext
 	docker compose --project-name aline_financial up
 
 down:

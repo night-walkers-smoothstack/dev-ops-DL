@@ -8,11 +8,18 @@ variable "tags" {
   description = "Base tags to apply to all AWS resources"
   type = object({
     Environment = string
-    Owner = string
+    Owner       = string
   })
 }
 
-variable "state_bucket" {
-  description = "S3 bucket to store Terraform state"
-  type = string
+variable "repo" {
+  description = "Repo to get microservices"
+  type        = string
+  sensitive   = true
+}
+
+variable "secret_key_name" {
+  description = "Name of secret storing database login"
+  type        = string
+  sensitive   = true
 }

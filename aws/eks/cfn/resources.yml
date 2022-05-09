@@ -31,7 +31,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref AlineFinacialVPC
-      AvailabilityZone: us-west-1b
+      AvailabilityZone: us-west-1a
       CidrBlock: !Ref PrivateSubnetCIDR
       MapPublicIpOnLaunch: false
 
@@ -39,7 +39,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref AlineFinacialVPC
-      AvailabilityZone: us-west-1c
+      AvailabilityZone: us-west-1b
       CidrBlock: !Ref Private2SubnetCIDR
       MapPublicIpOnLaunch: false
   
@@ -55,7 +55,7 @@ Resources:
       # PeerOwnerId: 
       # PeerRoleArn: String
       PeerVpcId: vpc-099b8359fac88d11e
-      PeerRegion: us-east-1
+      PeerRegion: us-west-1
       VpcId: !Ref AlineFinacialVPC
   
   secretMan:

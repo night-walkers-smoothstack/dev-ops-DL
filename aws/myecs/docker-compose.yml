@@ -54,7 +54,7 @@ networks:
 
 secrets:
   db_keys:
-    name: "arn:aws:secretsmanager:us-east-1:183655137506:secret:aline-db-secrets-dl-Ouv40l"
+    name: ${SECRET_ARN}
     external:
       true
     x-aws-keys:
