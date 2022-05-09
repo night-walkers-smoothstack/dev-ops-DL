@@ -14,3 +14,4 @@ terraform/charts/**
 *.backup
 eksctl_config.yml
 .notes.txt
+*.hcl
