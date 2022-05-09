@@ -32,7 +32,12 @@ pipeline {
       steps {
         withAWS(credentials:'terraform') {
           dir("$WORKING_DIR") {
-            sh 'terraform init -backend-config=backend.hcl'
+            sh """
+            terraform init -backend-config="bucket=${env.S3BUCKET}" \
+                            -backend-config="region=${env.TERRAFORM_S3_REGION}" \
+                            -backend-config="key=${env.TFSTATEFILE}"
+
+            """
           }
         }
       }
@@ -44,7 +49,7 @@ pipeline {
       steps {
         withAWS(credentials:'terraform', region:"${env.TERRAFORM_S3_REGION}") {
           s3Download(file: "${WORKING_DIR}/terraform.tfvars",
-                     bucket: "${env.TFVARS}",
+                     bucket: "${env.S3BUCKET}",
                      path: 'terraform.tfvars')
         }
       }
