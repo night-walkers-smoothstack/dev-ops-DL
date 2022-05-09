@@ -22,7 +22,7 @@ resource "aws_db_instance" "aline-db" {
   vpc_security_group_ids = var.security_groups_ids
   skip_final_snapshot    = false
 
-  snapshot_identifier = null # no snapshot on initial apply
+  snapshot_identifier       = null # no snapshot on initial apply
   final_snapshot_identifier = "final-snapshot-aline-db-dl"
   lifecycle {
     ignore_changes = [

@@ -1,10 +1,10 @@
 variable "engine" {
-  type = string
+  type        = string
   description = "what kind of database engine"
 }
 
 variable "engine_version" {
-  type = string
+  type        = string
   description = "what version of database engine"
 }
 
@@ -19,7 +19,7 @@ variable "db_root_password" {
   type        = string
   sensitive   = true
   validation {
-    condition   = (
+    condition = (
       can(regex("[A-Z]", var.db_root_password)) &&
       can(regex("[a-z]", var.db_root_password)) &&
       can(regex("[[:punct:]]", var.db_root_password))
@@ -41,7 +41,7 @@ variable "db_password" {
   type        = string
   sensitive   = true
   validation {
-    condition   = (
+    condition = (
       can(regex("[A-Z]", var.db_password)) &&
       can(regex("[a-z]", var.db_password)) &&
       can(regex("[[:punct:]]", var.db_password))
@@ -101,10 +101,10 @@ variable "security_groups_ids" {
 }
 
 variable "publicly_accessible" {
-  type      = bool
+  type        = bool
   description = "whether the db is accessable to the internet or not"
-  default   = false
-  sensitive = false
+  default     = false
+  sensitive   = false
 }
 
 variable "tags" {
@@ -114,7 +114,7 @@ variable "tags" {
 }
 
 variable "db_subnet_group_name" {
-  type = string
+  type        = string
   description = "name of subnet group to deploy db into"
-  sensitive = false
+  sensitive   = false
 }
