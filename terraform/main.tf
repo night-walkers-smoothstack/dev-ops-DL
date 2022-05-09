@@ -38,14 +38,14 @@ module "vpc" {
 
 module "rds" {
   identifier = var.identifier
-  source = "./modules/rds"
+  source     = "./modules/rds"
 
-  engine = "mysql"
+  engine         = "mysql"
   engine_version = "8.0.27"
 
   db_root_username = var.db_root
   db_root_password = var.db_root_password
-  db_name = var.db_name
+  db_name          = var.db_name
 
   db_username = var.db_username
   db_password = var.db_password
@@ -53,8 +53,8 @@ module "rds" {
   publicly_accessible = true
 
   allocated_storage = 20
-  storage_type = "gp2"
-  instance_class = "db.t3.micro"
+  storage_type      = "gp2"
+  instance_class    = "db.t3.micro"
 
   db_subnet_group_name = module.vpc.aws_db_subnet_group_name
 

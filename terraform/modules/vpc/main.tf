@@ -2,8 +2,8 @@
 # author Dylan Luttrell
 
 resource "aws_vpc" "this" {
-  cidr_block = var.vpc_cidr_block
-  tags       = var.tags
+  cidr_block           = var.vpc_cidr_block
+  tags                 = var.tags
   enable_dns_hostnames = true
 }
 
