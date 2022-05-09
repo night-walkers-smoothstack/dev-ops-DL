@@ -1,0 +1,54 @@
+pipeline {
+  agent { label 'linux && terraform' }
+  tools {
+    terraform 'Terraform1.1.8'
+  }
+  environment {
+    WORKING_DIR = 'terraform/'
+    REGION = 'us-west-1'
+  }
+  stages{
+    stage('Init') {
+      steps {
+        withAWS(credentials:'terraform') {
+          dir("$WORKING_DIR") {
+            sh 'terraform init -backend-config=backend.hcl'
+          }
+        }
+      }
+    }
+    // stage('Set TF Vars') {
+    //   steps {}
+    // }
+    stage('Get TFVars') {
+      steps {
+        withAWS(credentials:'terraform', region:"${env.TERRAFORM_S3_REGION}") {
+          s3Download(file: "${WORKING_DIR}/terraform.tfvars", bucket: "${env.TFVARS}", path: 'terraform.tfvars')
+        }
+      }
+    }
+    stage('Plan') {
+      steps {
+        withAWS(credentials:'terraform', region:"${REGION}") {
+          sh 'ls'
+          dir("${WORKING_DIR}") {
+            sh 'ls'
+            sh 'terraform plan --var-file=terraform.tfvars'
+          }
+        }
+      }
+    }
+    // stage('Deploy') {
+    //   steps {
+    //     withAWS(credentials:'terraform') {
+    //         sh 'terraform apply -auto-approve'
+    //       }
+    //     }
+    // }
+  }
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}
