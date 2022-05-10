@@ -2,45 +2,63 @@ x-aws-vpc: ${AWS_VPC}
 version: '3.9'
 
 services:
-  underwriter-microservice:
-    image: public.ecr.aws/l4g0u1s9/aline-underwriter:0.1.0
+  nginx:
+    image: ${ECR_REPO}/nginx:latest
+    ports:
+      - "80:80"
+    restart: on-failure:3
+
+  aline-underwriter:
+    image: ${ECR_REPO}/aline-underwriter:0.1.0
     container_name: aline-underwriter
-    env_file: .env_db
     environment:
       APP_PORT: 8071
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+    restart: on-failure:3
     secrets:
       - db_keys
     networks:
       - default
   
-  bank-microservice:
-    image: public.ecr.aws/l4g0u1s9/aline-bank:0.1.0
+  aline-bank:
+    image: ${ECR_REPO}/aline-bank:0.1.0
     container_name: aline-bank
-    env_file: .env_db
     environment: 
       APP_PORT: 8083
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+    restart: on-failure:3
     secrets:
       - db_keys
     networks:
       - default
 
-  transaction-microservice:
-    image: public.ecr.aws/l4g0u1s9/aline-transaction:0.1.0
+  aline-transaction:
+    image: ${ECR_REPO}/aline-transaction:0.1.0
     container_name: aline-transaction
-    env_file: .env_db
     environment:
       APP_PORT: 8073
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+    restart: on-failure:3
     secrets:
       - db_keys
     networks:
       - default
 
-  user-microservice:
-    image: public.ecr.aws/l4g0u1s9/aline-user:0.1.0
+  aline-user:
+    image: ${ECR_REPO}/aline-user:0.1.0
     container_name: aline-user
-    env_file: .env_db
     environment:
       APP_PORT: 8070
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+    restart: on-failure:3
     secrets:
       - db_keys
     networks:
