@@ -1,0 +1,85 @@
+pipeline {
+  agent { label 'linux && terraform' }
+  tools {
+    terraform 'Terraform1.1.8'
+  }
+  environment {
+    PROJECT_NAME = "aline_financial_dl"
+    WORKING_DIR = 'aws/myecs'
+    REGION = 'us-west-1'
+    ECS_CONTEXT = "${env.ECS_CONTEXT}"
+    ECR_REPO = "${env.REPOSITORY}"
+    REGION = 'us-west-1'
+  }
+  stages{
+    stage('Pull TFState') {
+      steps {
+        try {
+            withAWS(credentials:'terraform', region:"${env.TERRAFORM_S3_REGION}") {
+            s3Download(file: "terraform.tfstate",
+                        bucket: "${env.S3BUCKET}",
+                        path: "${env.TFSTATE_PATH}")
+            }
+            try {
+                // test if infrastructure is deployed by checking whether outputs are set.
+                // No outputs indicate that the infrastructure isn't yet deployed
+                sh '''
+                    VPC=$(cat terraform.tfstate | jq -r '.["outputs"]["vpc"])
+                    test $VPC != 'null'
+                '''
+            } catch {
+                // if no infrastructure exists, abort pipeline
+                currentBuild.result = 'ABORT'
+            }
+        } catch (err) {
+            // if unable to get tfstate file for any reason, abort pipeline
+            echo "Could not pull tfstate: ${err}"
+            currentBuild.result = 'ABORT'
+        }
+      }
+    }
+    stage('Set ECS Context') {
+        withAWS('aws_ecs', region:"${REGION}") {
+            sh """
+                docker context use ${ECS_CONTEXT}
+            """
+        }
+    }
+    stage('Docker Compose Up') {
+        environment {
+            SECRET_ARN = sh(returnStdout: true,
+                script: """
+                    cat terraform.tfstate | jq -r '.["outputs"]["secret_arn"]["value"]'
+                """)
+            AWS_VPC = sh(returnStdout: true,
+                script: """
+                    cat terraform.tfstate | jq -r '.["outputs"]["vpc"]["value"]'
+                """)
+            PRIVATE_1 = sh(returnStdout: true,
+                script: """
+                    cat terraform.tfstate | jq -r '.["outputs"]["private_subnets"]["value"][0]'
+                """)
+            PRIVATE_2 = sh(returnStdout: true,
+                script: """
+                    cat terraform.tfstate | jq -r '.["outputs"]["private_subnets"]["value"][1]'
+                """)
+            SEC_GRP = sh(returnStdout: true,
+                script: """
+                    cat terraform.tfstate | jq -r '.["outputs"]["aws_security_group_id"]["value"]'
+                """)
+        }
+        steps {
+            sh """
+            echo $SECRET_ARN
+            echo $AWS_VPC
+            echo $PRIVATE_1
+            """
+        }
+    }
+}
+    post {
+        always {
+        cleanWs()
+        }
+    }
+}
