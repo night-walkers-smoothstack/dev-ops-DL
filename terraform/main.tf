@@ -18,8 +18,14 @@ module "vpc" {
   security_group_ingress = [
     {
       protocol    = "tcp",
-      from_port   = 8080,
-      to_port     = 8080,
+      from_port   = 80,
+      to_port     = 80,
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      protocol    = "tcp",
+      from_port   = 3306,
+      to_port     = 3306,
       cidr_blocks = ["0.0.0.0/0"]
     }
   ]
@@ -46,6 +52,7 @@ module "rds" {
   db_root_username = var.db_root
   db_root_password = var.db_root_password
   db_name          = var.db_name
+  port             = 3306
 
   db_username = var.db_username
   db_password = var.db_password
