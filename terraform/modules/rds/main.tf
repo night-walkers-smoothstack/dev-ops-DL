@@ -23,7 +23,7 @@ resource "aws_db_instance" "aline-db" {
   skip_final_snapshot    = false
 
   snapshot_identifier       = null # no snapshot on initial apply
-  final_snapshot_identifier = "aline-db-${formatdate("YYYMMDDhhmmss", timestamp())}"
+  final_snapshot_identifier = "aline-db-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   lifecycle {
     ignore_changes = [
       password,

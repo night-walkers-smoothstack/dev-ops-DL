@@ -1,11 +1,7 @@
 terraform {
   required_version = ">= 1.1.7"
 
-  backend "s3" {
-    bucket = "aline-finacial-east-dylan-l"
-    key    = "states/terraform.tfstate"
-    region = "us-east-1"
-  }
+  backend "s3" {}
 
   required_providers {
     aws = {
