@@ -2,33 +2,37 @@ pipeline{
     agent{
         label 'docker && maven'
     }
+    options {
+        skipStagesAfterUnstable()
+    }
     tools {
         maven '3.8.5'
     }
     environment {
-        IMAGE_NAME = '<NAME>'
-        APP_VERSION = '<VERSION>'
-        AWS_REGION = '<AWS_REGION>'
+        APP_VERSION = sh (
+            script: '''
+                    grep -m 1 "<version>" pom.xml | awk -F'[><]' '{print $3}'
+                    ''',
+            returnStdout: true).trim()
+        MODULE = sh (
+            script: '''
+                    grep -m 2 "<module>" pom.xml | tail -1 | awk -F'[><]' '{print $3}'
+                    ''',
+            returnStdout: true).trim()
+        IMAGE_NAME = "aline-${MODULE}-dl"
+        AWS_REGION = 'us-west-1'
+        CREDENTIAL = 'jenkins-ecr'
     }
     stages {
-        // stage('Get AWS Credentials') {
-        //     steps {
-        //         // attempt to login to aws and pass credentials to docker
-        //         sh """
-        //             aws ecr get-login-password --region ${AWS_REGION} |\
-        //              docker login --username AWS --password-stdin ${REGISTRY_URI}
-        //         """
-        //     }
-        // }
         stage('Test') {
             steps {
                 sh 'mvn test'
             }
         }
-        stage('Sonarqube') {
+        stage('Sonarqube') { 
             steps {
-                withSonarQubeEnv('SonarQube') {
-                sh 'mvn sonar:sonar'
+                withSonarQubeEnv('sonarqube') {
+                sh 'mvn verify sonar:sonar'
               }
             }
         }
@@ -49,48 +53,48 @@ pipeline{
         }
         stage('Build Image') {
             steps {
-                // get microservice name and version from pom.xml, then build image
-                sh """
-                    VERSION=\$(grep -m 1 "<version>" pom.xml | awk -F'[><]' \'{print \$3}\')
-                    echo \$VERSION
-                    MODULE=\$(grep -m 2 "<module>" pom.xml | tail -1 | awk -F'[><]' \'{print \$3}\')
-
-                    docker build . \
-                        --build-arg NAME=\${MODULE} \
-                        --build-arg VERSION=\${VERSION} \
-                        --build-arg DIR=\${MODULE} \
-                        -t ${IMAGE_NAME}:${APP_VERSION}
-                """
+                script {
+                    sh """
+                        docker build . \
+                            --build-arg NAME=${MODULE} \
+                            --build-arg VERSION=${APP_VERSION} \
+                            --build-arg DIR=${MODULE} \
+                            -t ${IMAGE_NAME}:${APP_VERSION}
+                    """
+                    }
             }
         }
         stage('Deploy to ECR') {
             steps {
               // use commented code instead if publishing to a public repo
-                // // create repo if it doesn't already exist
-                // sh """
-                //     aws ecr create-repository --repository-name ${IMAGE_NAME} || true
-                // """
-                // // add repo tag and push to aws
-                // sh """
-                //     docker tag ${IMAGE_NAME}:${APP_VERSION} ${REGISTRY_URI}/${IMAGE_NAME}:${APP_VERSION}
-                //     docker push ${REGISTRY_URI}/${IMAGE_NAME} --all-tags
-                // """
-                script {
-                    docker.withRegistry(env.REPOSITORY, "ecr:${ AWS_REGION }:${ CREDENTIAL }") {
-                        app.push(${ APP_VERSION })
-                    }
+                withAWS(credentials: "${CREDENTIAL}") {
+                    // attempt to login to aws and pass credentials to docker
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} |\
+                        docker login --username AWS --password-stdin ${env.REPOSITORY}
+                    """
+                    // // create repo if it doesn't already exist
+                    sh """
+                        aws ecr create-repository --repository-name ${IMAGE_NAME} || true
+                    """
+                    // add repo tag and push to aws
+                    sh """
+                        docker tag ${IMAGE_NAME}:${APP_VERSION} ${env.REPOSITORY}/${IMAGE_NAME}:${APP_VERSION}
+                        docker push ${env.REPOSITORY}/${IMAGE_NAME} --all-tags
+                    """
                 }
+                // script {
+                //     docker.withRegistry("${env.REPOSITORY}", "ecr:${AWS_REGION}:${CREDENTIAL}") {
+                //         app.push("${APP_VERSION}")
+                //     }
+                // }
+            }
         }
     }
-}
     post {
         always {
             sh 'docker image prune -f'
-        }
-    }
-    post {
-        always {
-            sh 'docker image prune -f'
+            cleanWs()
         }
     }
 }

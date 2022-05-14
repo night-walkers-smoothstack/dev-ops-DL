@@ -1,15 +1,17 @@
 x-aws-vpc: ${AWS_VPC}
+x-aws-security-group: ${SEC_GRP}
+x-aws-loadbalancer: ${LOAD_BAL}
 version: '3.9'
 
 services:
   nginx:
-    image: ${ECR_REPO}/nginx:latest
+    image: ${ECR_REPO}/nginx-dl
     ports:
       - "80:80"
     restart: on-failure:3
 
   aline-underwriter:
-    image: ${ECR_REPO}/aline-underwriter:0.1.0
+    image: ${ECR_REPO}/aline-underwriter-microservice-dl:0.1.0
     container_name: aline-underwriter
     environment:
       APP_PORT: 8071
@@ -23,7 +25,7 @@ services:
       - default
   
   aline-bank:
-    image: ${ECR_REPO}/aline-bank:0.1.0
+    image: ${ECR_REPO}/aline-bank-microservice-dl:0.1.0
     container_name: aline-bank
     environment: 
       APP_PORT: 8083
@@ -37,7 +39,7 @@ services:
       - default
 
   aline-transaction:
-    image: ${ECR_REPO}/aline-transaction:0.1.0
+    image: ${ECR_REPO}/aline-transaction-microservice-dl:0.1.0
     container_name: aline-transaction
     environment:
       APP_PORT: 8073
@@ -51,7 +53,7 @@ services:
       - default
 
   aline-user:
-    image: ${ECR_REPO}/aline-user:0.1.0
+    image: ${ECR_REPO}/aline-user-microservice-dl:0.1.0
     container_name: aline-user
     environment:
       APP_PORT: 8070
@@ -64,16 +66,14 @@ services:
     networks:
       - default
 
-
-networks:
-  default:
-    name: ${SEC_GRP}
-    external: true
-
 secrets:
   db_keys:
-    name: ${SECRET_ARN}
-    external:
-      true
+    name: "${SECRET_ARN}"
+    external: true
     x-aws-keys:
-      - "*"
+      - "dbuser"
+      - "dbpassword"
+      - "app_user_access_key"
+      - "app_user_secret_key"
+      - "jwt_secret_key"
+      - "encrypt_secret_key"
