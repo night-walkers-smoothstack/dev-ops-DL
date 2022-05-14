@@ -4,7 +4,7 @@ pipeline {
     terraform 'Terraform1.1.8'
   }
   environment {
-    PROJECT_NAME = "aline_financial_dl"
+    PROJECT_NAME = 'aline_financial_dl'
     WORKING_DIR = 'aws/myecs'
     REGION = 'us-west-1'
     ECS_CONTEXT = "${env.ECS_CONTEXT}"
@@ -15,7 +15,7 @@ pipeline {
       steps {
           script {
             try {
-                withAWS(credentials:'terraform', region:"${env.TERRAFORM_S3_REGION}") {
+                withAWS(credentials:'jenkins-s3', region:"${env.TERRAFORM_S3_REGION}") {
                 s3Download(file: "terraform.tfstate",
                             bucket: "${env.S3BUCKET}",
                             path: "${env.TFSTATE_PATH}")
@@ -56,6 +56,13 @@ pipeline {
             }
         }
     }
+    stage('Login to ECR Repo') {
+        steps {
+            sh '''
+                aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin ${ECR_REPO}
+            '''
+        }
+    }
     stage('Docker Compose Up') {
         environment {
             SECRET_ARN = sh(returnStdout: true,
@@ -82,9 +89,16 @@ pipeline {
                 script: '''
                     cat terraform.tfstate | jq -r '.["outputs"]["rds_port"]["value"]'
                 ''')
+            LOAD_BAL = sh(returnStdout: true,
+                script: '''
+                    cat terraform.tfstate | jq -r '.["outputs"]["aws_alb_name"]["value"]'
+                ''')
         }
         steps {
-            withAWS(credentials:'aws-ecs', region:"${REGION}") {
+            withAWS(credentials:'jenkins-ecs', region:"${REGION}") {
+                sh '''
+                    aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin ${ECR_REPO}
+                '''
                 dir("$WORKING_DIR") {
                     sh 'docker compose up'
                 }
