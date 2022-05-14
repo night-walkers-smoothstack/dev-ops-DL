@@ -40,13 +40,17 @@ output "public_subnet_arns" {
 }
 
 output "rds_instance_name" {
-  value = module.rds.instance_name
+  value = module.rds[0].instance_name
 }
 
 output "rds_port" {
-  value = module.rds.port
+  value = module.rds[0].port
 }
 
 output "rds_address" {
-  value = module.rds.address
+  value = module.rds[0].address
+}
+
+output "aws_alb_name" {
+  value = module.vpc.aws_alb_name
 }

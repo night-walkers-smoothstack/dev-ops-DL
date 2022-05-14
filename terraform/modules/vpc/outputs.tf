@@ -64,3 +64,8 @@ output "aws_security_group_id" {
 output "aws_db_subnet_group_name" {
   value = aws_db_subnet_group.db.name
 }
+
+output "aws_alb_name" {
+  description = "id of application load balancer"
+  value = aws_lb.alb.name
+}

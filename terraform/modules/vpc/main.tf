@@ -170,3 +170,123 @@ resource "aws_security_group" "this" {
     var.tags
   )
 }
+
+################################################################################
+# endpoints
+
+# ecr endpoints
+resource "aws_vpc_endpoint" "ecr-dkr" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Interface"
+  service_name = "com.amazonaws.${var.region}.ecr.dkr"
+  security_group_ids = [
+    aws_security_group.this.id
+    ]
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+resource "aws_vpc_endpoint" "ecr-api" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Interface"
+  service_name = "com.amazonaws.${var.region}.ecr.api"
+  security_group_ids = [
+    aws_security_group.this.id
+    ]
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+# s3 endpoint
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Gateway"
+  service_name = "com.amazonaws.${var.region}.s3"
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+# ecs endpoints
+resource "aws_vpc_endpoint" "ecs" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Interface"
+  service_name = "com.amazonaws.${var.region}.ecs"
+  security_group_ids = [
+    aws_security_group.this.id
+    ]
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+resource "aws_vpc_endpoint" "ecs-telemetry" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Interface"
+  service_name = "com.amazonaws.${var.region}.ecs-telemetry"
+  security_group_ids = [
+    aws_security_group.this.id
+    ]
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+resource "aws_vpc_endpoint" "ecs-agent" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Interface"
+  service_name = "com.amazonaws.${var.region}.ecs-agent"
+  security_group_ids = [
+    aws_security_group.this.id
+    ]
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+# secret manager endpoint
+resource "aws_vpc_endpoint" "secretmanager" {
+  vpc_id = aws_vpc.this.id
+  vpc_endpoint_type = "Interface"
+  # private_dns_enabled = true
+  service_name = "com.amazonaws.${var.region}.secretsmanager"
+  security_group_ids = [
+    aws_security_group.this.id
+    ]
+  subnet_ids = [
+    for subnet in aws_subnet.private : subnet.id
+    ]
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+resource "aws_lb" "alb" {
+  name               = "aline-alb-dl"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.this.id]
+  subnets            = [for subnet in aws_subnet.private : subnet.id]
+
+  enable_deletion_protection = false
+
+  # access_logs {
+  #   bucket  = aws_s3_bucket.lb_logs.bucket
+  #   prefix  = "test-lb"
+  #   enabled = true
+  # }
+
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
