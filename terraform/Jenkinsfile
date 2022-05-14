@@ -36,15 +36,12 @@ pipeline {
             terraform init -backend-config="bucket=${env.S3BUCKET}" \
                             -backend-config="region=${env.TERRAFORM_S3_REGION}" \
                             -backend-config="key=${env.TFSTATEFILE}"
-
             """
-          }
+          } 
+          // figure out how to automate some of the configurations
         }
       }
     }
-    // stage('Set TF Vars') {
-    //   steps {}
-    // }
     stage('Get TFVars') {
       steps {
         withAWS(credentials:'terraform', region:"${env.TERRAFORM_S3_REGION}") {
@@ -63,7 +60,6 @@ pipeline {
         }
       }
     }
-    
     stage('Apply') {
       steps {
         withAWS(credentials:'terraform', region:"${REGION}") {
@@ -74,7 +70,7 @@ pipeline {
                             -input=false \
                             -auto-approve
             '''
-          } 
+          }
         }
       }
     }
