@@ -50,3 +50,8 @@ variable "identifier" {
   type        = string
   description = " Name of RDS instance."
 }
+
+variable "make_rds" {
+  type = bool
+  description = "toggle whether to generate a rds instance"
+}

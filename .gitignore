@@ -15,3 +15,4 @@ terraform/charts/**
 eksctl_config.yml
 .notes.txt
 *.hcl
+*.log
