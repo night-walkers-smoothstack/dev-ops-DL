@@ -77,17 +77,17 @@ checkout:
 
 .PHONY: dockerfile
 dockerfile:
-	sh automations/updocker.sh 'underwriter-microservice' backend/underwriter
-	sh automations/updocker.sh 'bank-microservice' backend/bank
-	sh automations/updocker.sh 'transaction-microservice' backend/transaction
-	sh automations/updocker.sh 'user-microservice' backend/user
+	sh automations/updocker.sh 'underwriter-microservice' backend/underwriter/
+	sh automations/updocker.sh 'bank-microservice' backend/bank/
+	sh automations/updocker.sh 'transaction-microservice' backend/transaction/
+	sh automations/updocker.sh 'user-microservice' backend/user/
 
 .PHONY: jenkinsfile
 jenkinsfile:
-	sh automations/upjenkins.sh 'aline_underwriter_dl' '0.1.0' ${AWS_REGION} backend/underwriter/
-	sh automations/upjenkins.sh 'aline_bank_dl' '0.1.0' ${AWS_REGION} backend/bank/
-	sh automations/upjenkins.sh 'aline_transaction_dl' '0.1.0' ${AWS_REGION} backend/transaction/
-	sh automations/upjenkins.sh 'aline_user_dl' '0.1.0' ${AWS_REGION} backend/user/
+	sh automations/upjenkins.sh backend/underwriter/
+	sh automations/upjenkins.sh backend/bank/
+	sh automations/upjenkins.sh backend/transaction/
+	sh automations/upjenkins.sh backend/user/
 
 runfile:
 	cp templates/run.sh  backend/underwriter/

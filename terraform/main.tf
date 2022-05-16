@@ -4,6 +4,9 @@ provider "aws" {
   region = var.aws_region
 }
 
+locals {
+  db_creds = jsondecode(data.aws_secretsmanager_secret_version.dbkeys-current.secret_string)
+}
 
 module "vpc" {
   source = "./modules/vpc"
@@ -18,8 +21,20 @@ module "vpc" {
   security_group_ingress = [
     {
       protocol    = "tcp",
-      from_port   = 8080,
-      to_port     = 8080,
+      from_port   = 80,
+      to_port     = 80,
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      protocol    = "tcp"
+      from_port   = 443
+      to_port     = 443
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      protocol    = "tcp",
+      from_port   = 3306,
+      to_port     = 3306,
       cidr_blocks = ["0.0.0.0/0"]
     }
   ]
@@ -37,15 +52,17 @@ module "vpc" {
 }
 
 module "rds" {
+  count      = var.make_rds ? 1 : 0
   identifier = var.identifier
   source     = "./modules/rds"
 
   engine         = "mysql"
   engine_version = "8.0.27"
 
-  db_root_username = var.db_root
-  db_root_password = var.db_root_password
+  db_root_username = local.db_creds["dbuser"]
+  db_root_password = local.db_creds["dbpassword"]
   db_name          = var.db_name
+  port             = 3306
 
   db_username = var.db_username
   db_password = var.db_password

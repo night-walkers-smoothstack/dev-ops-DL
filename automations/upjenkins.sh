@@ -1,10 +1,8 @@
 set -e
 
-test ${2} || (echo "usage 'sh ${0} <NAME> <VERSION> <REGISTRY> <AWS_REGION> <SUBMODULE-PATH>'" && false)
+test ${2} && (echo "usage 'sh ${0} <PATH>'" && false)
+test -d ${1} || (echo "directory does not exist" && false)
 
-sed -e "s/<NAME>/${1}/g" \
-    -e "s/<VERSION>/${2}/g" \
-    -e "s/<AWS_REGION>/${3}/g" \
-    templates/Jenkinsfile > "${4}/Jenkinsfile"
+cp templates/Jenkinsfile "${1}/"
 
 echo 'Jenkinsfiles updated'
