@@ -21,6 +21,7 @@ variable "private_subnets" {
     ])
     error_message = "All elements must be valid IPv4 CIDR block addresses."
   }
+  default = []
 }
 
 variable "public_subnets" {
@@ -31,6 +32,7 @@ variable "public_subnets" {
     ])
     error_message = "All elements must be valid IPv4 CIDR block addresses."
   }
+  default = []
 }
 
 variable "db_subnets" {
@@ -41,6 +43,7 @@ variable "db_subnets" {
     ])
     error_message = "All elements must be valid IPv4 CIDR block addresses."
   }
+  default = []
 }
 
 variable "security_group_ingress" {

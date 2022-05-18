@@ -1,6 +1,13 @@
 # creates vpc and subnet resources necessary to run containerized microservices with a backend database
 # author Dylan Luttrell
 
+locals {
+  # remove any empty strings from lists
+  private_subnets = compact(var.private_subnets)
+  public_subnets  = compact(var.public_subnets)
+  db_subnets      = compact(var.db_subnets)
+}
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr_block
   tags                 = var.tags
@@ -19,9 +26,9 @@ data "aws_availability_zones" "this" {
 
 # public subnets and resources
 resource "aws_subnet" "public" {
-  count                   = length(var.public_subnets)
+  count                   = length(local.public_subnets)
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnets[count.index]
+  cidr_block              = local.public_subnets[count.index]
   availability_zone       = element(data.aws_availability_zones.this.names, count.index)
   map_public_ip_on_launch = true
 
@@ -50,7 +57,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  count          = length(var.public_subnets)
+  count          = length(local.public_subnets)
   subnet_id      = element(aws_subnet.public.*.id, count.index)
   route_table_id = aws_route_table.public.id
 
@@ -60,16 +67,15 @@ resource "aws_route_table_association" "public" {
 
 # creates a set of subnets dedicated to database
 resource "aws_subnet" "db" {
-  count                   = length(var.db_subnets)
+  count                   = length(local.db_subnets)
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.db_subnets[count.index]
+  cidr_block              = local.db_subnets[count.index]
   availability_zone       = element(data.aws_availability_zones.this.names, count.index)
   map_public_ip_on_launch = true
 
   tags = merge(
     {
       "VPC" = aws_vpc.this.id
-      # "subnet_group" = aws_db_subnet_group.db.id
     },
     var.tags
   )
@@ -80,9 +86,12 @@ resource "aws_subnet" "db" {
 }
 
 resource "aws_db_subnet_group" "db" {
+  count       = length(local.db_subnets) > 0 ? 1 : 0 # create only if subnets exist
   name        = lower(coalesce(aws_vpc.this.id, "-db_subnet_group"))
   description = "Database subnet group"
-  subnet_ids  = aws_subnet.db[*].id
+  subnet_ids = [
+    for subnet in aws_subnet.db : subnet.id
+  ]
 
   tags = merge(
     {
@@ -102,7 +111,7 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.this.id
   cidr_block        = var.private_subnets[count.index]
   availability_zone = element(data.aws_availability_zones.this.names, count.index)
-  count             = length(var.private_subnets)
+  count             = length(local.private_subnets)
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -113,7 +122,7 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  count = length(var.private_subnets)
+  count = length(local.private_subnets)
   vpc   = true
 
   tags = merge(
@@ -123,9 +132,9 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "this" {
-  count             = length(var.private_subnets)
-  allocation_id     = element(aws_eip.nat.*.id, count.index)
-  subnet_id         = element(aws_subnet.public.*.id, count.index)
+  count             = length(local.private_subnets)
+  allocation_id     = aws_eip.nat[count.index].id
+  subnet_id         = aws_subnet.public[count.index].id
   connectivity_type = "public"
 
   tags = merge(
@@ -135,6 +144,26 @@ resource "aws_nat_gateway" "this" {
   depends_on = [
     aws_internet_gateway.this
   ]
+}
+
+resource "aws_route_table" "private" {
+  count  = length(local.private_subnets)
+  vpc_id = aws_vpc.this.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = element(aws_nat_gateway.this.*.id, count.index)
+  }
+  tags = merge(
+    { "VPC" = aws_vpc.this.id },
+    var.tags
+  )
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(local.private_subnets)
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[count.index].id
 }
 ################################################################################
 # security group resources
@@ -176,12 +205,15 @@ resource "aws_security_group" "this" {
 
 # ecr endpoints
 resource "aws_vpc_endpoint" "ecr-dkr" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Interface"
-  service_name = "com.amazonaws.${var.region}.ecr.dkr"
+  service_name      = "com.amazonaws.${var.region}.ecr.dkr"
   security_group_ids = [
     aws_security_group.this.id
-    ]
+  ]
+  subnet_ids = [
+    for subnet in aws_subnet.private : subnet.id
+  ]
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -189,12 +221,15 @@ resource "aws_vpc_endpoint" "ecr-dkr" {
 }
 
 resource "aws_vpc_endpoint" "ecr-api" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Interface"
-  service_name = "com.amazonaws.${var.region}.ecr.api"
+  service_name      = "com.amazonaws.${var.region}.ecr.api"
   security_group_ids = [
     aws_security_group.this.id
-    ]
+  ]
+  subnet_ids = [
+    for subnet in aws_subnet.private : subnet.id
+  ]
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -203,9 +238,9 @@ resource "aws_vpc_endpoint" "ecr-api" {
 
 # s3 endpoint
 resource "aws_vpc_endpoint" "s3" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Gateway"
-  service_name = "com.amazonaws.${var.region}.s3"
+  service_name      = "com.amazonaws.${var.region}.s3"
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -214,12 +249,15 @@ resource "aws_vpc_endpoint" "s3" {
 
 # ecs endpoints
 resource "aws_vpc_endpoint" "ecs" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Interface"
-  service_name = "com.amazonaws.${var.region}.ecs"
+  service_name      = "com.amazonaws.${var.region}.ecs"
   security_group_ids = [
     aws_security_group.this.id
-    ]
+  ]
+  subnet_ids = [
+    for subnet in aws_subnet.private : subnet.id
+  ]
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -227,12 +265,15 @@ resource "aws_vpc_endpoint" "ecs" {
 }
 
 resource "aws_vpc_endpoint" "ecs-telemetry" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Interface"
-  service_name = "com.amazonaws.${var.region}.ecs-telemetry"
+  service_name      = "com.amazonaws.${var.region}.ecs-telemetry"
   security_group_ids = [
     aws_security_group.this.id
-    ]
+  ]
+  subnet_ids = [
+    for subnet in aws_subnet.private : subnet.id
+  ]
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -240,12 +281,15 @@ resource "aws_vpc_endpoint" "ecs-telemetry" {
 }
 
 resource "aws_vpc_endpoint" "ecs-agent" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Interface"
-  service_name = "com.amazonaws.${var.region}.ecs-agent"
+  service_name      = "com.amazonaws.${var.region}.ecs-agent"
   security_group_ids = [
     aws_security_group.this.id
-    ]
+  ]
+  subnet_ids = [
+    for subnet in aws_subnet.private : subnet.id
+  ]
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -254,16 +298,16 @@ resource "aws_vpc_endpoint" "ecs-agent" {
 
 # secret manager endpoint
 resource "aws_vpc_endpoint" "secretmanager" {
-  vpc_id = aws_vpc.this.id
+  vpc_id            = aws_vpc.this.id
   vpc_endpoint_type = "Interface"
   # private_dns_enabled = true
   service_name = "com.amazonaws.${var.region}.secretsmanager"
   security_group_ids = [
     aws_security_group.this.id
-    ]
+  ]
   subnet_ids = [
     for subnet in aws_subnet.private : subnet.id
-    ]
+  ]
   tags = merge(
     { "VPC" = aws_vpc.this.id },
     var.tags
@@ -275,18 +319,11 @@ resource "aws_lb" "alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.this.id]
-  subnets            = [for subnet in aws_subnet.private : subnet.id]
+  # deploy to private subnets, if any. Else deploy to public.
+  subnets = [
+    for subnet in aws_subnet.public : subnet.id
+  ]
 
   enable_deletion_protection = false
 
-  # access_logs {
-  #   bucket  = aws_s3_bucket.lb_logs.bucket
-  #   prefix  = "test-lb"
-  #   enabled = true
-  # }
-
-  tags = merge(
-    { "VPC" = aws_vpc.this.id },
-    var.tags
-  )
 }

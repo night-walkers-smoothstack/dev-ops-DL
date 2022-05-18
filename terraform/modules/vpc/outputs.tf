@@ -62,10 +62,10 @@ output "aws_security_group_id" {
 }
 
 output "aws_db_subnet_group_name" {
-  value = aws_db_subnet_group.db.name
+  value = length(aws_db_subnet_group.db) > 0 ? aws_db_subnet_group.db[0].name : "NULL"
 }
 
 output "aws_alb_name" {
   description = "id of application load balancer"
-  value = aws_lb.alb.name
+  value       = aws_lb.alb.dns_name
 }

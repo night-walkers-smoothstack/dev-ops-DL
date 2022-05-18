@@ -1,0 +1,1127 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  subnet1:
+    Type: String
+  subnet2:
+    Type: String
+  dbHost:
+    Type: String
+  secretArn:
+    Type: String
+  vpc: 
+    Type: String
+  # enable if using a seperate security group
+  # secGrpArn:
+  #   Type: String
+  loadBal:
+    Type: String
+  ecrRepo:
+    Type: String
+  
+    
+
+Resources:
+  AlinebankAutoScalingRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: application-autoscaling.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - application-autoscaling:*
+            - ecs:DescribeServices
+            - ecs:UpdateService
+            - cloudwatch:GetMetricStatistics
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - Ref: AlinebankService
+        PolicyName: service-autoscaling
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-bank
+    Type: AWS::IAM::Role
+  AlinebankScalableTarget:
+    DependsOn:
+    - AlinebankService
+    Properties:
+      MaxCapacity: 2
+      MinCapacity: 1
+      ResourceId:
+        Fn::Join:
+        - /
+        - - service
+          - Ref: Cluster
+          - Fn::GetAtt:
+            - AlinebankService
+            - Name
+      RoleARN:
+        Fn::GetAtt:
+        - AlinebankAutoScalingRole
+        - Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+  AlinebankScalingPolicy:
+    Properties:
+      PolicyName: AlinebankScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId:
+        Ref: AlinebankScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 75
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  AlinebankService:
+    Properties:
+      Cluster:
+        Fn::GetAtt:
+        - Cluster
+        - Arn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: DefaultNetwork
+          Subnets:
+          - !Ref subnet1
+          - !Ref subnet2
+      PlatformVersion: 1.4.0
+      PropagateTags: SERVICE
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+      - RegistryArn:
+          Fn::GetAtt:
+          - AlinebankServiceDiscoveryEntry
+          - Arn
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-bank
+      TaskDefinition:
+        Ref: AlinebankTaskDefinition
+    Type: AWS::ECS::Service
+  AlinebankServiceDiscoveryEntry:
+    Properties:
+      Description: '"aline-bank" service discovery entry in Cloud Map'
+      DnsConfig:
+        DnsRecords:
+        - TTL: 60
+          Type: A
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+      Name: aline-bank
+      NamespaceId:
+        Ref: CloudMap
+    Type: AWS::ServiceDiscovery::Service
+  AlinebankTaskDefinition:
+    Properties:
+      ContainerDefinitions:
+      - Command:
+        - '[{"Name":"db_keys","Keys":["*"]}]'
+        Essential: false
+        Image: docker/ecs-secrets-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          SourceVolume: secrets
+        Name: Alinebank_Secrets_InitContainer
+        Secrets:
+        - Name: db_keys
+          ValueFrom: !Ref secretArn
+      - Command:
+        - us-west-1.compute.internal
+        - myecs.local
+        Essential: false
+        Image: docker/ecs-searchdomain-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        Name: Alinebank_ResolvConf_InitContainer
+      - DependsOn:
+        - Condition: SUCCESS
+          ContainerName: Alinebank_Secrets_InitContainer
+        - Condition: SUCCESS
+          ContainerName: Alinebank_ResolvConf_InitContainer
+        Environment:
+        - Name: APP_PORT
+          Value: "8083"
+        - Name: DB_HOST
+          Value: !Ref dbHost
+        - Name: DB_NAME
+          Value: alinedb_dl
+        - Name: DB_PORT
+          Value: "3306"
+        Essential: true
+        Image: !Join [ "", [ !Ref ecrRepo, "/", "aline-bank-microservice-dl", ":", "0.1.0"] ]
+        LinuxParameters: {}
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          ReadOnly: true
+          SourceVolume: secrets
+        Name: aline-bank
+      Cpu: "256"
+      ExecutionRoleArn:
+        Ref: AlinebankTaskExecutionRole
+      Family: myecs-aline-bank
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+      - FARGATE
+      Volumes:
+      - Name: secrets
+    Type: AWS::ECS::TaskDefinition
+  AlinebankTaskExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - ssm:GetParameters
+            - kms:Decrypt
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - !Ref secretArn
+        PolicyName: aline-bankGrantAccessToSecrets
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-bank
+    Type: AWS::IAM::Role
+  AlinetransactionAutoScalingRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: application-autoscaling.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - application-autoscaling:*
+            - ecs:DescribeServices
+            - ecs:UpdateService
+            - cloudwatch:GetMetricStatistics
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - Ref: AlinetransactionService
+        PolicyName: service-autoscaling
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-transaction
+    Type: AWS::IAM::Role
+  AlinetransactionScalableTarget:
+    DependsOn:
+    - AlinetransactionService
+    Properties:
+      MaxCapacity: 2
+      MinCapacity: 1
+      ResourceId:
+        Fn::Join:
+        - /
+        - - service
+          - Ref: Cluster
+          - Fn::GetAtt:
+            - AlinetransactionService
+            - Name
+      RoleARN:
+        Fn::GetAtt:
+        - AlinetransactionAutoScalingRole
+        - Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+  AlinetransactionScalingPolicy:
+    Properties:
+      PolicyName: AlinetransactionScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId:
+        Ref: AlinetransactionScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 75
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  AlinetransactionService:
+    Properties:
+      Cluster:
+        Fn::GetAtt:
+        - Cluster
+        - Arn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: DefaultNetwork
+          Subnets:
+          - !Ref subnet1
+          - !Ref subnet2
+      PlatformVersion: 1.4.0
+      PropagateTags: SERVICE
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+      - RegistryArn:
+          Fn::GetAtt:
+          - AlinetransactionServiceDiscoveryEntry
+          - Arn
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-transaction
+      TaskDefinition:
+        Ref: AlinetransactionTaskDefinition
+    Type: AWS::ECS::Service
+  AlinetransactionServiceDiscoveryEntry:
+    Properties:
+      Description: '"aline-transaction" service discovery entry in Cloud Map'
+      DnsConfig:
+        DnsRecords:
+        - TTL: 60
+          Type: A
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+      Name: aline-transaction
+      NamespaceId:
+        Ref: CloudMap
+    Type: AWS::ServiceDiscovery::Service
+  AlinetransactionTaskDefinition:
+    Properties:
+      ContainerDefinitions:
+      - Command:
+        - '[{"Name":"db_keys","Keys":["*"]}]'
+        Essential: false
+        Image: docker/ecs-secrets-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          SourceVolume: secrets
+        Name: Alinetransaction_Secrets_InitContainer
+        Secrets:
+        - Name: db_keys
+          ValueFrom: !Ref secretArn
+      - Command:
+        - us-west-1.compute.internal
+        - myecs.local
+        Essential: false
+        Image: docker/ecs-searchdomain-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        Name: Alinetransaction_ResolvConf_InitContainer
+      - DependsOn:
+        - Condition: SUCCESS
+          ContainerName: Alinetransaction_Secrets_InitContainer
+        - Condition: SUCCESS
+          ContainerName: Alinetransaction_ResolvConf_InitContainer
+        Environment:
+        - Name: APP_PORT
+          Value: "8073"
+        - Name: DB_HOST
+          Value: !Ref dbHost
+        - Name: DB_NAME
+          Value: alinedb_dl
+        - Name: DB_PORT
+          Value: "3306"
+        Essential: true
+        Image: !Join [ "", [ !Ref ecrRepo, "/", "aline-transaction-microservice-dl", ":", "0.1.0"] ]
+        LinuxParameters: {}
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          ReadOnly: true
+          SourceVolume: secrets
+        Name: aline-transaction
+      Cpu: "256"
+      ExecutionRoleArn:
+        Ref: AlinetransactionTaskExecutionRole
+      Family: myecs-aline-transaction
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+      - FARGATE
+      Volumes:
+      - Name: secrets
+    Type: AWS::ECS::TaskDefinition
+  AlinetransactionTaskExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - ssm:GetParameters
+            - kms:Decrypt
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - !Ref secretArn
+        PolicyName: aline-transactionGrantAccessToSecrets
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-transaction
+    Type: AWS::IAM::Role
+  AlineunderwriterAutoScalingRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: application-autoscaling.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - application-autoscaling:*
+            - ecs:DescribeServices
+            - ecs:UpdateService
+            - cloudwatch:GetMetricStatistics
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - Ref: AlineunderwriterService
+        PolicyName: service-autoscaling
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-underwriter
+    Type: AWS::IAM::Role
+  AlineunderwriterScalableTarget:
+    DependsOn:
+    - AlineunderwriterService
+    Properties:
+      MaxCapacity: 2
+      MinCapacity: 1
+      ResourceId:
+        Fn::Join:
+        - /
+        - - service
+          - Ref: Cluster
+          - Fn::GetAtt:
+            - AlineunderwriterService
+            - Name
+      RoleARN:
+        Fn::GetAtt:
+        - AlineunderwriterAutoScalingRole
+        - Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+  AlineunderwriterScalingPolicy:
+    Properties:
+      PolicyName: AlineunderwriterScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId:
+        Ref: AlineunderwriterScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 75
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  AlineunderwriterService:
+    Properties:
+      Cluster:
+        Fn::GetAtt:
+        - Cluster
+        - Arn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: DefaultNetwork
+          Subnets:
+          - !Ref subnet1
+          - !Ref subnet2
+      PlatformVersion: 1.4.0
+      PropagateTags: SERVICE
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+      - RegistryArn:
+          Fn::GetAtt:
+          - AlineunderwriterServiceDiscoveryEntry
+          - Arn
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-underwriter
+      TaskDefinition:
+        Ref: AlineunderwriterTaskDefinition
+    Type: AWS::ECS::Service
+  AlineunderwriterServiceDiscoveryEntry:
+    Properties:
+      Description: '"aline-underwriter" service discovery entry in Cloud Map'
+      DnsConfig:
+        DnsRecords:
+        - TTL: 60
+          Type: A
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+      Name: aline-underwriter
+      NamespaceId:
+        Ref: CloudMap
+    Type: AWS::ServiceDiscovery::Service
+  AlineunderwriterTaskDefinition:
+    Properties:
+      ContainerDefinitions:
+      - Command:
+        - '[{"Name":"db_keys","Keys":["*"]}]'
+        Essential: false
+        Image: docker/ecs-secrets-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          SourceVolume: secrets
+        Name: Alineunderwriter_Secrets_InitContainer
+        Secrets:
+        - Name: db_keys
+          ValueFrom: !Ref secretArn
+      - Command:
+        - us-west-1.compute.internal
+        - myecs.local
+        Essential: false
+        Image: docker/ecs-searchdomain-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        Name: Alineunderwriter_ResolvConf_InitContainer
+      - DependsOn:
+        - Condition: SUCCESS
+          ContainerName: Alineunderwriter_Secrets_InitContainer
+        - Condition: SUCCESS
+          ContainerName: Alineunderwriter_ResolvConf_InitContainer
+        Environment:
+        - Name: APP_PORT
+          Value: "8071"
+        - Name: DB_HOST
+          Value: !Ref dbHost
+        - Name: DB_NAME
+          Value: alinedb_dl
+        - Name: DB_PORT
+          Value: "3306"
+        Essential: true
+        Image: !Join [ "", [ !Ref ecrRepo, "/", "aline-underwriter-microservice-dl", ":", "0.1.0"] ]
+        LinuxParameters: {}
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          ReadOnly: true
+          SourceVolume: secrets
+        Name: aline-underwriter
+      Cpu: "256"
+      ExecutionRoleArn:
+        Ref: AlineunderwriterTaskExecutionRole
+      Family: myecs-aline-underwriter
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+      - FARGATE
+      Volumes:
+      - Name: secrets
+    Type: AWS::ECS::TaskDefinition
+  AlineunderwriterTaskExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - ssm:GetParameters
+            - kms:Decrypt
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - !Ref secretArn
+        PolicyName: aline-underwriterGrantAccessToSecrets
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-underwriter
+    Type: AWS::IAM::Role
+  AlineuserAutoScalingRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: application-autoscaling.amazonaws.com
+        Version: 2012-10-17
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - application-autoscaling:*
+            - ecs:DescribeServices
+            - ecs:UpdateService
+            - cloudwatch:GetMetricStatistics
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - Ref: AlineuserService
+        PolicyName: service-autoscaling
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-user
+    Type: AWS::IAM::Role
+  AlineuserScalableTarget:
+    DependsOn:
+    - AlineuserService
+    Properties:
+      MaxCapacity: 4
+      MinCapacity: 1
+      ResourceId:
+        Fn::Join:
+        - /
+        - - service
+          - Ref: Cluster
+          - Fn::GetAtt:
+            - AlineuserService
+            - Name
+      RoleARN:
+        Fn::GetAtt:
+        - AlineuserAutoScalingRole
+        - Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+  AlineuserScalingPolicy:
+    Properties:
+      PolicyName: AlineuserScalingPolicy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId:
+        Ref: AlineuserScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: 75
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  AlineuserService:
+    Properties:
+      Cluster:
+        Fn::GetAtt:
+        - Cluster
+        - Arn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: DefaultNetwork
+          Subnets:
+          - !Ref subnet1
+          - !Ref subnet2
+      PlatformVersion: 1.4.0
+      PropagateTags: SERVICE
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+      - RegistryArn:
+          Fn::GetAtt:
+          - AlineuserServiceDiscoveryEntry
+          - Arn
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-user
+      TaskDefinition:
+        Ref: AlineuserTaskDefinition
+    Type: AWS::ECS::Service
+  AlineuserServiceDiscoveryEntry:
+    Properties:
+      Description: '"aline-user" service discovery entry in Cloud Map'
+      DnsConfig:
+        DnsRecords:
+        - TTL: 60
+          Type: A
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+      Name: aline-user
+      NamespaceId:
+        Ref: CloudMap
+    Type: AWS::ServiceDiscovery::Service
+  AlineuserTaskDefinition:
+    Properties:
+      ContainerDefinitions:
+      - Command:
+        - '[{"Name":"db_keys","Keys":["*"]}]'
+        Essential: false
+        Image: docker/ecs-secrets-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          SourceVolume: secrets
+        Name: Alineuser_Secrets_InitContainer
+        Secrets:
+        - Name: db_keys
+          ValueFrom: !Ref secretArn
+      - Command:
+        - us-west-1.compute.internal
+        - myecs.local
+        Essential: false
+        Image: docker/ecs-searchdomain-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        Name: Alineuser_ResolvConf_InitContainer
+      - DependsOn:
+        - Condition: SUCCESS
+          ContainerName: Alineuser_Secrets_InitContainer
+        - Condition: SUCCESS
+          ContainerName: Alineuser_ResolvConf_InitContainer
+        Environment:
+        - Name: APP_PORT
+          Value: "8070"
+        - Name: DB_HOST
+          Value: !Ref dbHost
+        - Name: DB_NAME
+          Value: alinedb_dl
+        - Name: DB_PORT
+          Value: "3306"
+        Essential: true
+        Image: !Join [ "", [ !Ref ecrRepo, "/", "aline-user-microservice-dl", ":", "0.1.0"] ]
+        LinuxParameters: {}
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        MountPoints:
+        - ContainerPath: /run/secrets/
+          ReadOnly: true
+          SourceVolume: secrets
+        Name: aline-user
+      Cpu: "256"
+      ExecutionRoleArn:
+        Ref: AlineuserTaskExecutionRole
+      Family: myecs-aline-user
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+      - FARGATE
+      Volumes:
+      - Name: secrets
+    Type: AWS::ECS::TaskDefinition
+  AlineuserTaskExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - ssm:GetParameters
+            - kms:Decrypt
+            Condition: {}
+            Effect: Allow
+            Principal: {}
+            Resource:
+            - !Ref secretArn
+        PolicyName: aline-userGrantAccessToSecrets
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: aline-user
+    Type: AWS::IAM::Role
+  CloudMap:
+    Properties:
+      Description: Service Map for Docker Compose project myecs
+      Name: myecs.local
+      Vpc: !Ref vpc
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+  Cluster:
+    Properties:
+      ClusterName: myecs
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+    Type: AWS::ECS::Cluster
+  Default80Ingress:
+    Properties:
+      CidrIp: 0.0.0.0/0
+      Description: nginx:80/tcp on default network
+      FromPort: 80
+      GroupId:
+        Ref: DefaultNetwork
+      IpProtocol: TCP
+      ToPort: 80
+    Type: AWS::EC2::SecurityGroupIngress
+  DefaultNetwork:
+    Properties:
+      GroupDescription: myecs Security Group for default network
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.network
+        Value: myecs_default
+      VpcId: !Ref vpc
+    Type: AWS::EC2::SecurityGroup
+  DefaultNetworkIngress:
+    Properties:
+      Description: Allow communication within network default
+      GroupId:
+        Ref: DefaultNetwork
+      IpProtocol: "-1"
+      SourceSecurityGroupId:
+        Ref: DefaultNetwork
+    Type: AWS::EC2::SecurityGroupIngress
+  LogGroup:
+    Properties:
+      LogGroupName: /docker-compose/myecs
+    Type: AWS::Logs::LogGroup
+  NginxService:
+    DependsOn:
+    - NginxTCP80Listener
+    - AlineunderwriterService
+    - AlinebankService
+    - AlineuserService
+    - AlinetransactionService
+    Properties:
+      Cluster:
+        Fn::GetAtt:
+        - Cluster
+        - Arn
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+      DesiredCount: 1
+      LaunchType: FARGATE
+      LoadBalancers:
+      - ContainerName: nginx
+        ContainerPort: 80
+        TargetGroupArn:
+          Ref: NginxTCP80TargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: DefaultNetwork
+          Subnets:
+          - !Ref subnet1
+          - !Ref subnet2
+      PlatformVersion: 1.4.0
+      PropagateTags: SERVICE
+      SchedulingStrategy: REPLICA
+      ServiceRegistries:
+      - RegistryArn:
+          Fn::GetAtt:
+          - NginxServiceDiscoveryEntry
+          - Arn
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: nginx
+      TaskDefinition:
+        Ref: NginxTaskDefinition
+    Type: AWS::ECS::Service
+  NginxServiceDiscoveryEntry:
+    Properties:
+      Description: '"nginx" service discovery entry in Cloud Map'
+      DnsConfig:
+        DnsRecords:
+        - TTL: 60
+          Type: A
+        RoutingPolicy: MULTIVALUE
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+      Name: nginx
+      NamespaceId:
+        Ref: CloudMap
+    Type: AWS::ServiceDiscovery::Service
+  NginxTCP80Listener:
+    Properties:
+      DefaultActions:
+      - ForwardConfig:
+          TargetGroups:
+          - TargetGroupArn:
+              Ref: NginxTCP80TargetGroup
+        Type: forward
+      LoadBalancerArn: !Ref loadBal
+      Port: 80
+      Protocol: HTTP
+    Type: AWS::ElasticLoadBalancingV2::Listener
+  NginxTCP80TargetGroup:
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      TargetType: ip
+      VpcId: !Ref vpc
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  NginxTaskDefinition:
+    Properties:
+      ContainerDefinitions:
+      - Command:
+        - us-west-1.compute.internal
+        - myecs.local
+        Essential: false
+        Image: docker/ecs-searchdomain-sidecar:1.0
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        Name: Nginx_ResolvConf_InitContainer
+      - DependsOn:
+        - Condition: SUCCESS
+          ContainerName: Nginx_ResolvConf_InitContainer
+        Essential: true
+        Image: !Join [ "", [ !Ref ecrRepo, "/", "nginx-dl", ":", "latest"] ]
+        LinuxParameters: {}
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-stream-prefix: myecs
+        Name: nginx
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 80
+          Protocol: tcp
+      Cpu: "256"
+      ExecutionRoleArn:
+        Ref: NginxTaskExecutionRole
+      Family: myecs-nginx
+      Memory: "512"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+      - FARGATE
+    Type: AWS::ECS::TaskDefinition
+  NginxTaskExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Condition: {}
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+      Tags:
+      - Key: com.docker.compose.project
+        Value: myecs
+      - Key: com.docker.compose.service
+        Value: nginx
+    Type: AWS::IAM::Role

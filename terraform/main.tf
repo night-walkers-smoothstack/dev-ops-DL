@@ -36,7 +36,13 @@ module "vpc" {
       from_port   = 3306,
       to_port     = 3306,
       cidr_blocks = ["0.0.0.0/0"]
+      }, {
+      protocol    = "tcp",
+      from_port   = 8000,
+      to_port     = 8200,
+      cidr_blocks = ["0.0.0.0/0"]
     }
+
   ]
 
   security_group_egress = [

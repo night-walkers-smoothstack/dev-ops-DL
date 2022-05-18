@@ -54,6 +54,7 @@ pipeline{
         stage('Build Image') {
             steps {
                 script {
+                    // build docker image with arguments provided above
                     sh """
                         docker build . \
                             --build-arg NAME=${MODULE} \

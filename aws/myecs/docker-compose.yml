@@ -8,7 +8,11 @@ services:
     image: ${ECR_REPO}/nginx-dl
     ports:
       - "80:80"
-    restart: on-failure:3
+    depends_on:
+      - aline-underwriter
+      - aline-bank
+      - aline-user
+      - aline-transaction
 
   aline-underwriter:
     image: ${ECR_REPO}/aline-underwriter-microservice-dl:0.1.0
@@ -18,11 +22,13 @@ services:
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
       DB_PORT: ${DB_PORT}
-    restart: on-failure:3
     secrets:
       - db_keys
-    networks:
-      - default
+    deploy:
+      x-aws-autoscaling:
+          min: 1
+          max: 2 
+          cpu: 75
   
   aline-bank:
     image: ${ECR_REPO}/aline-bank-microservice-dl:0.1.0
@@ -32,11 +38,13 @@ services:
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
       DB_PORT: ${DB_PORT}
-    restart: on-failure:3
     secrets:
       - db_keys
-    networks:
-      - default
+    deploy:
+      x-aws-autoscaling:
+          min: 1
+          max: 2 
+          cpu: 75
 
   aline-transaction:
     image: ${ECR_REPO}/aline-transaction-microservice-dl:0.1.0
@@ -46,11 +54,13 @@ services:
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
       DB_PORT: ${DB_PORT}
-    restart: on-failure:3
     secrets:
       - db_keys
-    networks:
-      - default
+    deploy:
+      x-aws-autoscaling:
+          min: 1
+          max: 2 
+          cpu: 75
 
   aline-user:
     image: ${ECR_REPO}/aline-user-microservice-dl:0.1.0
@@ -60,20 +70,17 @@ services:
       DB_HOST: ${DB_HOST}
       DB_NAME: ${DB_NAME}
       DB_PORT: ${DB_PORT}
-    restart: on-failure:3
     secrets:
       - db_keys
-    networks:
-      - default
+    deploy:
+      x-aws-autoscaling:
+          min: 1
+          max: 4 
+          cpu: 75
 
 secrets:
   db_keys:
     name: "${SECRET_ARN}"
     external: true
     x-aws-keys:
-      - "dbuser"
-      - "dbpassword"
-      - "app_user_access_key"
-      - "app_user_secret_key"
-      - "jwt_secret_key"
-      - "encrypt_secret_key"
+      - "*"

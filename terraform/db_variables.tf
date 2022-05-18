@@ -52,6 +52,6 @@ variable "identifier" {
 }
 
 variable "make_rds" {
-  type = bool
+  type        = bool
   description = "toggle whether to generate a rds instance"
 }

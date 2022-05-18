@@ -40,15 +40,15 @@ output "public_subnet_arns" {
 }
 
 output "rds_instance_name" {
-  value = module.rds[0].instance_name
+  value = length(module.rds) > 0 ? module.rds[0].instance_name : "NULL"
 }
 
 output "rds_port" {
-  value = module.rds[0].port
+  value = length(module.rds) > 0 ? module.rds[0].port : -1
 }
 
 output "rds_address" {
-  value = module.rds[0].address
+  value = length(module.rds) > 0 ? module.rds[0].address : "NULL"
 }
 
 output "aws_alb_name" {

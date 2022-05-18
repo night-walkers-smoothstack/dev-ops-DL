@@ -11,5 +11,8 @@ COPY ${DIR}/target/${NAME}-${VERSION}.jar service.jar
 ENV DB_PLATFORM=org.hibernate.dialect.H2Dialect
 ENV DDL_AUTO_MODE=create-only
 
-EXPOSE 8071
-CMD ["java", "-jar", "service.jar"]
+# add run script
+COPY run.sh .
+RUN chmod 755 run.sh
+
+CMD ["./run.sh"]

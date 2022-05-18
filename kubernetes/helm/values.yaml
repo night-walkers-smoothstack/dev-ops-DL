@@ -14,7 +14,7 @@ Secret:
     - encrypt_secret_key
 Services:
   - name: aline-bank
-    image: aline-bank
+    image: aline-bank-dl
     container:
       name: aline-bank
       port: 8083
